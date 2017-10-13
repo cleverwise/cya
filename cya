@@ -1,0 +1,1073 @@
+#!/bin/bash
+
+: <<HEADER
+Cover Your Ass(ets) v1.0 on 12 October 2017
+Copyright (c) 2017 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+HEADER
+
+######################################################################
+# Variables
+######################################################################
+
+# Version number
+VERSION="1.0"
+
+# Title variable
+TITLE="Cover Your Ass(ets)"
+
+# Set ACTION_BANNER to off
+ACTION_BANNER="off"
+
+# Load action from commandline
+action=$1
+
+# Core backup directories
+BACKUP_DIRECTORIES=(/boot/ /bin/ /etc/ /var/ /lib/ /lib32/ /lib64/ /root/ /sbin/ /usr/)
+
+####################################################################
+# Load configuration file and set database
+####################################################################
+
+# Get home directory
+HOME_DIR="/home/cya"
+
+# Restore directory
+RESTORE_DIR="$HOME_DIR/points"
+
+# Load configuration file
+CONFIG_FILE="$HOME_DIR/cya.conf"
+
+# Last run file
+LAST_RUN_FILE="$HOME_DIR/LAST_RUN"
+
+# Declare CONFIG_ARRAY
+declare -A CONFIG_ARRAY
+
+# Turn disclaimer on - may be set off in config file
+CONFIG_ARRAY[DISCLAIMER]="on"
+
+# Load configuration variables - if file doesn't exist create it
+if [ -f "$CONFIG_FILE" ]
+then
+	CONFIG_FILE_CONTENTS=`cat $CONFIG_FILE`
+	IFS=$'\n' read -rd '' -a CONFIG_VARS <<< "$CONFIG_FILE_CONTENTS"
+	for CONFIG_VARS_DATA in "${CONFIG_VARS[@]}"
+	do
+		# Split data
+		IFS='=' read -a CONFIG_DATA <<< "${CONFIG_VARS_DATA}"
+		# Remove first and last quotes
+		CONFIG_DATA_VALUE="${CONFIG_DATA[1]//\"/}"
+		CONFIG_ARRAY[${CONFIG_DATA[0]}]="$CONFIG_DATA_VALUE"
+	done
+
+	# Update BACKUP DIRECTORIES
+	if [[ CONFIG_ARRAY[BACKUP_DIRECTORIES] ]]
+	then
+		IFS=' ' read -a DATA <<< "${CONFIG_ARRAY[BACKUP_DIRECTORIES]}"
+		BACKUP_DIRECTORIES=("${BACKUP_DIRECTORIES[@]}" "${DATA[@]}")
+	fi
+fi
+
+######################################################################
+# Header
+######################################################################
+echo "☀ $TITLE v$VERSION ☀"$'\n'
+
+######################################################################
+# Functions
+######################################################################
+
+# Footer
+######################################################################
+DISPLAY_FOOTER() {
+	echo $'\n'$'\n'$"‣ Disclaimer: CYA offers zero guarantees as improper usage can cause undesired results"
+	echo "‣ Notice: Proper usage can stop unauthorized changes to system from attacks"$'\n'
+}
+
+# Display install package notices
+######################################################################
+DISPLAY_PACKAGE_INSTALL() {
+	echo "$1 is not on this system please install!"$'\n'
+	echo "* Debian/Ubuntu based: sudo apt-get install $2"
+	echo "* Redhat based: sudo yum install $3 OR sudo dnf install $3"
+	echo "* Other OSes seek instructions for installing $2"$'\n'
+	command_list_status="fail"
+}
+
+# Make sure sudo permissions are enabled, if not ask
+######################################################################
+SUDO_CHECK() {
+	# Make sure sudo is on
+	echo "Checking sudo permissions..."
+	SUDO_CHECK=`sudo ls`
+}
+
+# Command check - MUST BE BELOW DISPLAY_PACKAGE_INSTALL
+######################################################################
+COMMAND_CHECK() {
+	command_list_status="pass"
+
+	# Check for rsync
+	command -v rsync >/dev/null 2>&1 || {
+		DISPLAY_PACKAGE_INSTALL "rsync" "rsync" "rsync"
+	}
+
+	# Check for sudo
+	command -v sudo >/dev/null 2>&1 || {
+		DISPLAY_PACKAGE_INSTALL "sudo" "sudo" "sudo"
+	}
+
+	# Check for grep
+	command -v grep >/dev/null 2>&1 || {
+		DISPLAY_PACKAGE_INSTALL "grep" "grep" "grep"
+	}
+
+	# If command_list_status is  fail then exit
+	if test "$command_list_status" == "fail"
+	then
+		echo "PLEASE CORRECT MISSING PACKAGE(S) THEN TRY AGAIN!"$'\n'
+		exit
+	fi
+
+	# Create directories, if necessary: home, restore, restore point numbers 1-3
+	CHECK_DIRECTORIES=($HOME_DIR $RESTORE_DIR $RESTORE_DIR/1 $RESTORE_DIR/2 $RESTORE_DIR/3)
+
+	for CHECK_DIRECTORY in "${CHECK_DIRECTORIES[@]}"
+	do
+		if [ ! -d "${CHECK_DIRECTORY}" ]
+		then
+			SUDO_CHECK
+			echo -n "We need to create ${CHECK_DIRECTORY} ... "
+			bash_cli=`sudo mkdir ${CHECK_DIRECTORY}`
+			echo "done"
+		fi
+	done
+
+	# Create files, if necessary: config file, last run
+	CHECK_FILES=($CONFIG_FILE $LAST_RUN_FILE)
+	for CHECK_FILE in "${CHECK_FILES[@]}"
+	do
+		if [ ! -f "${CHECK_FILE}" ]
+		then
+			SUDO_CHECK
+			echo -n "We need to create ${CHECK_FILE} ..."
+			bash_cli=`sudo touch ${CHECK_FILE}`
+			echo "done"
+		fi
+	done
+}
+
+# Display action banner - MUST BE ABOVE INITIALIZE_DB & AFTER COMMAND_CHECK, VERSION_CHECK
+######################################################################
+ACTION_BANNER() {
+	COMMAND_CHECK
+
+	ACTION_BANNER="on"
+	echo "ACTION ⯮ $1"$'\n'
+}
+
+# Display error banner
+######################################################################
+ERROR_BANNER() {
+	echo "{ERROR} $1"
+}
+
+# Display success banner
+######################################################################
+SUCCESS_BANNER() {
+	echo $'\n'"🗹 SUCCESS: $1"
+}
+
+# Display failed banner
+######################################################################
+FAILED_BANNER() {
+	echo "🗵 FAILED: $1"
+}
+
+# Menu Header display
+######################################################################
+MENU_HEADER() {
+	echo $'\n'$"$1:"$'\n'$"------------------------------------------------------------"
+}
+
+# Menu Item display
+######################################################################
+MENU_ITEM() {
+	printf "%-18s %-2s %-2s %-2s %s\n" "$1" "" "$2" "" "$3";
+}
+
+# List Item display
+######################################################################
+LIST_ITEM() {
+	printf "\n%-40s %-5s %s\n" "$1" "" "$2";
+	for ((c=1; c<=80; c++))
+	do
+		echo -n "-"
+	done
+}
+
+# Remove ', " and trim
+######################################################################
+SANATIZE_VAR() {
+	clean_var=$1
+
+	clean_var=${clean_var//\'/}
+	clean_var=${clean_var//\"/}
+	clean_var=${clean_var//\./}
+	clean_var=${clean_var//\//}
+	clean_var=`echo $clean_var | xargs`
+}
+
+# Get current date
+######################################################################
+GET_DATE() {
+	DATE=`date +"%c"`
+}
+
+# Restore script write out
+######################################################################
+RESTORE_SCRIPT_INSERT() {
+	bash_cli=`sudo bash -c "echo '$1' >> $HOME_DIR/recovery.sh"`
+}
+
+# CYA Log write out
+######################################################################
+CYA_LOG_INSERT() {
+	bash_cli=`sudo bash -c "echo '$1' >> /cya_log"`
+}
+
+# SUDO call
+######################################################################
+SUDO_RUN () {
+	bash_cli=`sudo $1`
+}
+
+# SUDO Write To File
+######################################################################
+SUDO_WRITEOUT() {
+	bash_cli=`sudo bash -c "echo '$1' > $2"`
+}
+
+# RSYNC Backup Run - MUST BEFORE RUN_RSYNC
+######################################################################
+RSYNC_BACKUP_GO() {
+	# Run actual backup
+	BACKUP_STATE="off"
+	for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
+	do
+		if [ -d "${BACKUP_DIRECTORY}" ]
+		then
+			# Process excludes
+			EXCLUDE_NAME="EXCLUDE_${BACKUP_DIRECTORY}"
+			EXCLUDE_DIR=${CONFIG_ARRAY[$EXCLUDE_NAME]}
+			EXCLUDE_DIRS=""
+			if [[ $EXCLUDE_DIR ]]
+			then
+				# Split data
+				IFS=' ' read -a EXCLUDE_DATA <<< "$EXCLUDE_DIR"
+				# Loop to build exclude directories
+				for EXCLUDE_ENTRY in "${EXCLUDE_DATA[@]}"
+				do
+					# Verify directory before adding
+					if [ -d "${BACKUP_DIRECTORY}${EXCLUDE_ENTRY[0]}" ]
+					then
+						EXCLUDE_DIRS+="--exclude=${EXCLUDE_ENTRY[0]} "
+					fi
+				done
+			fi
+			# Run backup
+			echo -n "Backing up ${BACKUP_DIRECTORY} ... "
+			SUDO_RUN "rsync -a --delete $EXCLUDE_DIRS${BACKUP_DIRECTORY} $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
+			echo " complete"
+			BACKUP_STATE="on"
+		fi
+	done
+
+	# If backup successful write out data file
+	if test $BACKUP_STATE == "on"
+	then
+		GET_DATE
+		echo -n "Write out date file ... "
+		# Remove existing file, if necessary
+		##if [ -f "$RESTORE_DIR/$BACKUP_NAME/cya-date" ]
+		##then
+		##	SUDO_RUN "rm $RESTORE_DIR/$BACKUP_NAME/cya-date"
+		##fi
+		# Create and write out date
+		##SUDO_RUN "touch $RESTORE_DIR/$BACKUP_NAME/cya-date"
+		SUDO_WRITEOUT "$DATE" "$RESTORE_DIR/$BACKUP_NAME/cya-date"
+		echo "complete"
+	fi
+}
+
+# Rsync
+######################################################################
+RUN_RSYNC() {
+	SYNC_STATE=$1
+	BACKUP_NAME=$2
+
+	if [ -z "$BACKUP_NAME" ]
+	then
+		FAILED_BANNER "No backup name provided"
+	else
+		SUDO_CHECK
+
+		# RSYNC Restore
+		if test $SYNC_STATE == "restore"
+		then
+			BACKUP_NAME="$2"
+			BACKUP_BEFORE="$3"
+			DELETE_FILES="$4"
+			PROMPT_EACH="$5"
+
+			# If cya_log exists remove
+			if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
+			then
+				echo -n "Removing /cya_log ... "
+				SUDO_RUN "rm /cya_log"
+				echo "complete"
+			fi
+
+			# Set date
+			GET_DATE
+			CYA_LOG_INSERT "$DATE"
+			CYA_LOG_INSERT "--------------------------------------------------------"
+			CYA_LOG_INSERT "Backup Profile Used: $BACKUP_NAME"
+			
+			# Check backup directory exists
+			if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
+			then
+				# Run backup before restore, if set
+				if test $BACKUP_BEFORE == "y"
+				then
+					# Temp hold backup name and generate current state name
+					BACKUP_NAME_HOLD="$BACKUP_NAME"
+					UNIXTIME=`date +"%s"`
+					BACKUP_NAME="RESTORE-$UNIXTIME"
+
+					# Create backup directory, if necessary
+					if [ ! -d "$RESTORE_DIR/$BACKUP_NAME" ]
+					then
+						CYA_LOG="Creating current state name $RESTORE_DIR/$BACKUP_NAME ... "
+						echo -n "$CYA_LOG"
+						CYA_LOG_INSERT "$CYA_LOG"
+
+						SUDO_RUN "mkdir $RESTORE_DIR/$BACKUP_NAME"
+
+						CYA_LOG="complete"
+						echo "$CYA_LOG"
+						CYA_LOG_INSERT "$CYA_LOG"
+					fi
+
+					CYA_LOG="Backing up current state... "
+					echo "$CYA_LOG"
+					CYA_LOG_INSERT "$CYA_LOG"
+
+					RSYNC_BACKUP_GO
+
+					CYA_LOG="Current state back up complete"
+					echo "$CYA_LOG"
+					CYA_LOG_INSERT "$CYA_LOG"
+
+					BACKUP_NAME="$BACKUP_NAME_HOLD"
+				fi
+
+				# Set delete flag
+				DELETE_FLAG=""
+				if test $DELETE_FILES == "y"
+				then
+					DELETE_FLAG=" --delete"
+				fi
+
+				# Restore Status
+				RESTORE_STATUS="n"
+
+				# Now restore directories
+				for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
+				do
+					# Check to see if directory exists in backup
+					if [ -d "$RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}" ]
+					then
+
+						# Set restore flag
+						RESTORE_DO="y"
+
+						# If necessary confirm directory restore
+						if test $PROMPT_EACH == "y"
+						then
+							echo -n "Restore ${BACKUP_DIRECTORY}? [y/n] "
+							read RESTORE_DO
+							if [ -z "$RESTORE_DO" ]
+							then
+								RESTORE_DO="n"
+							fi
+
+							if test "$RESTORE_DO" != "y"
+							then
+								echo "Skipping ${BACKUP_DIRECTORY}"
+							fi
+						fi
+
+						# Run restore
+						if test $RESTORE_DO == "y"
+						then
+							# Process excludes
+							EXCLUDE_NAME="EXCLUDE_${BACKUP_DIRECTORY}"
+							EXCLUDE_DIR=${CONFIG_ARRAY[$EXCLUDE_NAME]}
+							EXCLUDE_DIRS=""
+							if [[ $EXCLUDE_DIR ]]
+							then
+								# Split data
+								IFS=' ' read -a EXCLUDE_DATA <<< "$EXCLUDE_DIR"
+								# Loop to build exclude directories
+								for EXCLUDE_ENTRY in "${EXCLUDE_DATA[@]}"
+								do
+									# Verify directory before adding
+									if [ -d "${BACKUP_DIRECTORY}${EXCLUDE_ENTRY[0]}" ]
+									then
+										EXCLUDE_DIRS+="--exclude=${EXCLUDE_ENTRY[0]} "
+									fi
+								done
+							fi
+
+							CYA_LOG="Restoring ${BACKUP_DIRECTORY} ... "
+							echo -n "$CYA_LOG"
+
+							# Run rsync
+							SUDO_RUN "rsync -a$DELETE_FLAG $EXCLUDE_DIRS$RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY} ${BACKUP_DIRECTORY}"
+
+							CYA_LOG="complete"
+							echo "$CYA_LOG"
+							CYA_LOG_INSERT "Restoring ${BACKUP_DIRECTORY} ... complete"
+
+							# Set status
+							RESTORE_STATUS="y"
+						fi
+
+					fi
+				done
+
+				# Print reboot if restore was done
+				if test $RESTORE_STATUS == "y"
+				then
+					echo $'\n'$"🟂 Now restart your machine to load your environment with the restored files! 🟂"
+				fi
+			else
+				FAILED_BANNER "Backup directory doesn't exist!"
+			fi
+
+		# RSYNC Backup
+		else
+			# Create backup directory, if necessary
+			if [ ! -d "$RESTORE_DIR/$BACKUP_NAME" ]
+			then
+				echo -n "We need to create $RESTORE_DIR/$BACKUP_NAME ... "
+				SUDO_RUN "mkdir $RESTORE_DIR/$BACKUP_NAME"
+				echo "done"
+			fi
+
+			RSYNC_BACKUP_GO
+
+			# If standard backup update current number
+			if test $3 == "standard"
+			then
+				echo -n "Update rotation file ... "
+				SUDO_WRITEOUT "$4" "$LAST_RUN_FILE"
+				echo "complete"
+			fi
+		fi
+	# End sync type
+	fi
+}
+
+# List Backups
+######################################################################
+LIST_BACKUPS() {
+	LIST_ITEM "Backup Name" "Date & Time"
+
+	# Load directory list into array
+	DIRECTORIES=($(ls -1 $RESTORE_DIR))
+
+	# Loop through and build list
+	for DIRECTORY in "${DIRECTORIES[@]}"
+	do
+		if [[ "${DIRECTORY}" != "." ]] && [[ "${DIRECTORY}" != ".." ]]
+		then
+			# Grab date
+			if [ -f "$RESTORE_DIR/${DIRECTORY}/cya-date" ]
+			then
+				DATESTAMP=`cat $RESTORE_DIR/${DIRECTORY}/cya-date`
+			else
+				DATESTAMP='none'
+			fi
+
+			# Display list
+			LIST_ITEM "${DIRECTORY}" "$DATESTAMP"
+		fi
+	done
+}
+
+######################################################################
+# Actions
+######################################################################
+
+# List Backups
+######################################################################
+if test "$action" == "list"
+then
+	ACTION_BANNER "List Backups"
+
+	LIST_BACKUPS
+fi
+
+# Restore
+######################################################################
+if test "$action" == "restore"
+then
+	ACTION_BANNER "Restore"
+
+	# Check with user
+	echo "(((WARNING))) You are about to begin the restore process which WILL alter the system's operating files!!! It is best practice to restore a system from a live boot environment using a CD, USB, or network image.  Then chrooting to the installed OS device."$'\n'
+	echo -n "Are you sure you want to continue this process? [y/N] "
+	read CONTINUE_STATUS
+
+	if [ -z $CONTINUE_STATUS ]
+	then
+		CONTINUE_STATUS="n"
+	fi
+
+	# Process answer
+	if test $CONTINUE_STATUS == "y"
+	then
+		echo -n $'\n'$"First pick the name of a backup to restore. Press any key to continue... "
+		read CONTINUE_STATUSB
+
+		# Choose the backup to use for restoring
+		LIST_BACKUPS
+		echo $'\n'
+
+		for ((c=1; c<=20; c++))
+		do
+			echo -n "Enter backup name to restore: "
+			read BACKUP_NAME
+			SANATIZE_VAR $BACKUP_NAME
+			BACKUP_NAME="$clean_var"
+			if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
+			then
+				E_BACKUP_NAME="$BACKUP_NAME"
+				break
+			else
+				FAILED_BANNER "Invalid name!"
+			fi
+		done
+
+		# If no backup name abort
+		if [ -z $E_BACKUP_NAME ]
+		then
+			echo "Aborting... no valid backup name provided"
+		else
+			# Backup current state
+			echo $'\n'$"Do you want to take a backup of current state before restoring? [y/N]"
+			read BACKUP_BEFORE
+			if [ -z $BACKUP_BEFORE ]
+			then
+				BACKUP_BEFORE="n"
+			fi
+			SANATIZE_VAR $BACKUP_BEFORE
+			BACKUP_BEFORE="$clean_var"
+
+			# Delete files
+			echo $'\n'$"Should files that do NOT exist in backup be deleted from destination?  (Will remove unauthorized files) [y/N]"
+			read DELETE_FILES
+			if [ -z $DELETE_FILES ]
+			then
+				DELETE_FILES="n"
+			fi
+			SANATIZE_VAR $DELETE_FILES
+			DELETE_FILES="$clean_var"
+
+			# Verify each directory
+			echo $'\n'$"Do you want to be asked whether to restore each directory individually? [y/N]"
+			read PROMPT_EACH
+			if [ -z $PROMPT_EACH ]
+			then
+				PROMPT_EACH="n"
+			fi
+
+			# Verify restore actions
+			echo $'\n'$"======================================================================"
+			echo "FILE CHANGES ABOUT TO OCCUR! VERIFY AND CONFIRM:"
+			echo "======================================================================"$'\n'
+			echo "Restoring Backup Profile: $E_BACKUP_NAME"
+			echo -n "Backing Up Current State: "
+			if test $BACKUP_BEFORE == "y"
+			then
+				echo "Yes"
+			else
+				echo "No"
+				BACKUP_BEFORE="n"
+			fi
+			echo -n "Delete Files Not Found In Backup: "
+			if test $DELETE_FILES == "y"
+			then
+				echo "Yes"
+			else
+				echo "No"
+				DELETE_FILES="n"
+			fi
+			echo -n "Ask To Restore Directories Individually: "
+			if test $PROMPT_EACH == "y"
+			then
+				echo "Yes"
+			else
+				echo "No"
+				PROMPT_EACH="n"
+			fi
+			# Verify restore action with user
+			echo -n $'\n'$"✱ DATA CHANGES IMMINENT✱"$'\n'$"To start process type the word restore in all lower case, otherwise hit any other key to abort ... "
+			read BACKUP_ACTION
+			if [ -z $BACKUP_ACTION ]
+			then
+				BACKUP_ACTION="n"
+			fi
+
+			if test $BACKUP_ACTION == "restore"
+			then
+				echo $'\n'$"Begin Restore..."
+				RUN_RSYNC restore $E_BACKUP_NAME $BACKUP_BEFORE $DELETE_FILES $PROMPT_EACH
+			else
+				echo "🗷 Aborting... nothing has been changed! Goodbye"
+			fi
+		fi
+	else
+		echo "🗷 Aborting... Goodbye"
+	fi
+
+fi
+
+# Manual Backups
+######################################################################
+if test "$action" == "keep"
+then
+	ACTION_BANNER "Manual Backup"
+
+	# Set type
+	TYPE="long"
+	if [[ $2 ]]
+	then
+		if test "$2" == "name"
+		then
+			TYPE="short"
+		fi
+	fi
+
+	# Backup based on type
+	if test $TYPE == "short"
+	then
+		# Set backup name, if missing use unixtime
+		if [[ $3 ]]
+		then
+			SANATIZE_VAR $3
+			E_BACKUP_NAME="$clean_var"
+		else
+			E_BACKUP_NAME=`date +"%s"`
+		fi
+
+		# Set overwrite flag
+		OVERWRITE="n"
+		if [ -n "$4" ]
+		then
+			OVERWRITE="$4"
+		fi
+		if test $OVERWRITE == "overwrite"
+		then
+			OVERWRITE="y"
+		else
+			OVERWRITE="n"
+		fi
+
+		# Check directory name, add unixtime if exists then recheck unless overwrite is set
+		if test $OVERWRITE == "n"
+		then
+			if [ -d "$RESTORE_DIR/$E_BACKUP_NAME" ]
+			then
+				FAILED_BANNER "Unable to create directory $RESTORE_DIR/$E_BACKUP_NAME"
+				exit
+			fi
+		fi
+	else
+		# Get custom backup directory and check
+		for ((c=1; c<=20; c++))
+		do
+			echo -n "Enter unique backup name (no spaces): "
+			read E_BACKUP_NAME
+			SANATIZE_VAR $E_BACKUP_NAME
+			E_BACKUP_NAME="$clean_var"
+			if [ -d "$RESTORE_DIR/$E_BACKUP_NAME" ]
+			then
+				FAILED_BANNER "Name already in use!"
+			else
+				break
+			fi
+		done
+	fi
+
+	# Perform Rsync
+	RUN_RSYNC backup $E_BACKUP_NAME manual 0
+fi
+
+# Standard Backups
+######################################################################
+if test "$action" == "save"
+then
+	ACTION_BANNER "Standard Backup"
+
+	# Load last run
+	if [ -f "$LAST_RUN_FILE" ]
+	then
+		LAST_RUN_COUNT=`cat $LAST_RUN_FILE`
+	fi
+	# If not a number set to 1
+	re='^[0-9]+$'
+	if ! [[ $LAST_RUN_COUNT =~ $re ]]
+	then
+		LAST_RUN_COUNT="0"
+	fi
+	# Update by 1
+	LAST_RUN_COUNT=$(($LAST_RUN_COUNT+1))
+	# If above 3 set to 1
+	if test $LAST_RUN_COUNT -gt 3
+	then
+		LAST_RUN_COUNT="1"
+	fi
+
+	RUN_RSYNC backup $LAST_RUN_COUNT standard $LAST_RUN_COUNT
+fi
+
+# Remove Manual Backups
+######################################################################
+if test "$action" == "remove"
+then
+	ACTION_BANNER "Remove Manual Backup"
+
+	LIST_BACKUPS
+
+	echo -n $'\n'$'\n'$"Enter name of backup to remove: "
+	read BACKUP_NAME
+
+	if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
+	then
+		echo -n "Are you sure? [y/n] "
+		read CONFIRM
+
+		if [ -z $CONFIRM ]
+		then
+			CONFIRM="n"
+		fi
+
+		if test $CONFIRM == "y"
+		then
+			SUDO_CHECK
+			echo -n "Deleting ... "
+			SUDO_RUN "rm -Rf $RESTORE_DIR/$BACKUP_NAME"
+			echo "completed"
+		else
+			echo "$BACKUP_NAME was kept"
+		fi
+	else
+		echo "$BACKUP_NAME does NOT exist!"
+	fi
+fi
+
+# List directories being backed up
+######################################################################
+if test "$action" == "directories"
+then
+	ACTION_BANNER "Directories Backing Up"
+
+	# List directories
+	for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
+	do
+		echo -n "${BACKUP_DIRECTORY}" ...
+		if [ -d "${BACKUP_DIRECTORY}" ]
+		then
+			echo " yes"
+		else
+			echo " skipping - DOESN'T EXIST!"
+		fi		
+	done
+fi
+
+# Config file
+######################################################################
+if test "$action" == "configfile"
+then
+	ACTION_BANNER "Configuration File"
+
+echo "You may make changes to the system using the configuration file.
+
+Configuration file: cya.conf
+Location: $HOME_DIR
+
+All changes open up the cya.conf file using your prefer text editor
+
+------------------------------------------------------------
+• Additional directories to include in backup:
+
+This is very easy. Add or edit the following variable
+
+BACKUP_DIRECTORIES=\"\"
+
+Now between the quotes add the directories separated by a space.
+
+Example:
+
+BACKUP_DIRECTORIES=\"/tmp/ /important/ /myfiles/configuration/\"
+
+------------------------------------------------------------
+• Exclude subdirectories from backup:
+
+You simply type EXCLUDE underscore then parent directory with slashes and between quotes add children directories separated by a space.  Now the subdirectores should NOT include the parent directory.  NO FORWARD SLASHES FOR CHILDREN DIRECTORIES!
+
+Example:
+
+Let's say we want to exclude /var/tmp/ and /var/logs/ which are inside /var/, obviously.
+
+EXCLUDE_/var/=\"tmp/ logs/\"
+
+You simply repeat for additional directories with EXCLUDE_/dir/ one per line.
+
+Example:
+
+EXCLUDE_/etc/=\"logs/ conf/\"
+EXCLUDE_/var/=\"tmp/ logs/\"
+
+------------------------------------------------------------
+• Turn off disclaimer notice:
+
+All you need to do is set the variable DISCLAIMER to off
+
+DISCLAIMER=\"off\"" | more
+
+fi
+
+# Updates
+######################################################################
+if test "$action" == "updates"
+then
+	ACTION_BANNER "Updates"
+
+	echo "For updates please see:
+
+Web: https://www.cyberws.com/bash/cya/
+Github: https://github.com/cleverwise/cya/"
+fi
+
+# Version check
+######################################################################
+if test "$action" == "version"
+then
+	ACTION_BANNER "Version Check"
+
+	# Load current version from github
+	GH_VERSION=`curl -s https://raw.githubusercontent.com/cleverwise/cya/master/version`
+
+	if [ -z $GH_VERSION ]
+	then
+		MSG="🗷 ERROR: UNABLE TO CONNECT TO GITHUB VERSION CHECK!!!"
+		GH_VERSION="Unknown - can NOT connect to GitHub"
+	else
+		if test $GH_VERSION == $VERSION
+		then
+			MSG="🗹 LATEST VERSION!"
+		else
+			MSG="🗷 UPGRADED REQUIRED! VERSIONS DO NOT MATCH!"
+		fi
+	fi
+	echo "$MSG"$'\n'
+	echo "Github Version: $GH_VERSION"
+	echo "Installed Version: $VERSION"
+	echo $'\n'$"Github: https://github.com/cleverwise/cya"
+fi
+
+# Help
+######################################################################
+if test "$action" == "script"
+then
+	ACTION_BANNER "Generating Recovery Script"
+
+	echo "Generating Linux recovery script ... "
+	SUDO_CHECK
+
+	# Remove old versions
+	if [ -f "$HOME_DIR/recovery.sh" ]
+	then 
+		bash_cli=`sudo rm -R $HOME_DIR/recovery.sh`
+	fi
+	bash_cli=`sudo touch $HOME_DIR/recovery.sh`
+
+	# Add data
+	RESTORE_SCRIPT_INSERT "#!/bin/bash"
+	RESTORE_SCRIPT_INSERT ""
+	RESTORE_SCRIPT_INSERT "# Cover Your Ass(ets) Mounting Script v1.0"
+	RESTORE_SCRIPT_INSERT "# This script attempts to ready Linux system for cya by mounting and chrooting root filesystem"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Create mount point
+	RESTORE_SCRIPT_INSERT "# Create mount point"
+	RESTORE_SCRIPT_INSERT "sudo mkdir /mnt/cya"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Get root filesystem
+	ROOT_DEVICE=`mount | grep "on / "`
+	IFS=' ' read -a DATA <<< "$ROOT_DEVICE"
+	RESTORE_SCRIPT_INSERT "# Mount root filesystem"
+	RESTORE_SCRIPT_INSERT "sudo mount ${DATA[0]} /mnt/cya/"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Is home on seperate partition add mount
+	HOME_DEVICE=`mount | grep "/home"`
+	if [[ $HOME_DEVICE ]]
+	then
+		IFS=' ' read -a DATA <<< "$HOME_DEVICE"
+		RESTORE_SCRIPT_INSERT "# Mount home filesystem"
+		RESTORE_SCRIPT_INSERT "sudo mount ${DATA[0]} /mnt/cya/home/"
+	fi
+
+	# Add necessary mount points here
+	RESTORE_SCRIPT_INSERT "# Add additional mount calls below this line - mount into /mnt/cya/CUSTOM_DIRECTORY"
+	RESTORE_SCRIPT_INSERT "# Don't forget to add create directory before mounting if it doesn't already exist!"
+	RESTORE_SCRIPT_INSERT "# Ex: sudo mkdir /mnt/cya/backups"
+	RESTORE_SCRIPT_INSERT "# Ex: sudo mount /dev/sda4 /mnt/cya/backups/"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Check for necessary commands and if not there copy
+	RESTORE_SCRIPT_INSERT "SYSTEM_DIRECTORIES=(/bin/ /usr/bin/ /dev/)" 
+	RESTORE_SCRIPT_INSERT "for SYSTEM_DIRECTORY in \"\${SYSTEM_DIRECTORIES[@]}\""
+	RESTORE_SCRIPT_INSERT "do"
+	RESTORE_SCRIPT_INSERT "if [ ! -d \"/mnt/cya\${SYSTEM_DIRECTORY}\" ]"
+	RESTORE_SCRIPT_INSERT "then"
+	RESTORE_SCRIPT_INSERT "sudo mkdir -p /mnt/cya\${CSYSTEM_DIRECTORY}"
+	RESTORE_SCRIPT_INSERT "fi"
+	RESTORE_SCRIPT_INSERT "done"
+	RESTORE_SCRIPT_INSERT ""
+	RESTORE_SCRIPT_INSERT "# Check for necessary commands"
+	RESTORE_SCRIPT_INSERT "CHECK_COMMANDS=(/bin/bash /bin/cp /bin/date /bin/ls /bin/mkdir /usr/bin/rsync /usr/bin/touch /usr/bin/sudo /dev/null)" 
+	RESTORE_SCRIPT_INSERT "for CHECK_COMMAND in \"\${CHECK_COMMANDS[@]}\""
+	RESTORE_SCRIPT_INSERT "do"
+	RESTORE_SCRIPT_INSERT "if [ ! -f \"/mnt/cya\${CHECK_COMMAND}\" ]"
+	RESTORE_SCRIPT_INSERT "then"
+	RESTORE_SCRIPT_INSERT "sudo cp \${CHECK_COMMAND} /mnt/cya\${CHECK_COMMAND}"
+	RESTORE_SCRIPT_INSERT "fi"
+	RESTORE_SCRIPT_INSERT "done"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Alter hostname to prevent errors with sudo hostname
+	RESTORE_SCRIPT_INSERT "sudo hostname 127.0.0.1"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Print command for user
+	RESTORE_SCRIPT_INSERT "echo \"Run the cya recovery program by issuing the following command:\""
+	RESTORE_SCRIPT_INSERT "echo \"/home/cya/cya restore\""
+	RESTORE_SCRIPT_INSERT ""
+
+	# Set chroot
+	RESTORE_SCRIPT_INSERT "# Chroot call"
+	RESTORE_SCRIPT_INSERT "sudo chroot /mnt/cya/"
+	RESTORE_SCRIPT_INSERT ""
+
+	# Set correct permissions - root only
+	SUDO_RUN "chmod 755 $HOME_DIR/recovery.sh"
+
+	# Copy cya script into HOME_DIR
+	CYA_FULL_PATH=`whereis cya`
+	IFS=' ' read -a DATA <<< "$CYA_FULL_PATH"
+	SUDO_RUN "cp ${DATA[1]} $HOME_DIR/"
+
+	echo "Complete"
+	echo ""
+	echo "IMPORTANT: This script will ONLY mount / and /home.  Thus if you are storing data on another mount point open the recovery.sh script and add the additional mount point command where necessary.  This is also a best guess and should be tested before an emergency to verify it works as desired."
+fi
+
+# Uses
+######################################################################
+if test "$action" == "uses"
+then
+	ACTION_BANNER "Uses"
+
+echo "This script has many uses including:
+
+* Software Testing - clean up changes caused by testing software
+* Configuration Changes - rollback system configuration changes
+* Bad Upgrades - undo botched upgrades
+* Foil Intruders - erase unauthorized system files and changes"
+fi
+
+# Credits
+######################################################################
+if test "$action" == "credits"
+then
+	ACTION_BANNER "Credits"
+
+	echo "Lead programmer: Jeremy O'Connell"
+	echo "[] Cyberweb Solutions, LLC @ www.CyberWS.com"$'\n'
+	echo "Testing and collaboration: Joe Collins"
+	echo "[] EzeeLinux @ www.EzeeLinux.com"
+fi
+
+# Help
+######################################################################
+if test "$action" == "help"
+then
+	ACTION_BANNER "Help"
+
+	MENU_HEADER "Backing Up"
+	MENU_ITEM "save" " " "Standard rotating backups"
+	MENU_ITEM "keep" " " "Manual backups - NEVER DELETED"
+
+	MENU_HEADER "Restoring"
+	MENU_ITEM "restore" " " "Restore the system"
+
+	MENU_HEADER "Other"
+	MENU_ITEM "configfile" "" "Configuration file help"
+	MENU_ITEM "directories" "" "List directories backed up"
+	MENU_ITEM "list" " " "List current saved backups"
+	MENU_ITEM "remove" " " "Delete manual backups"
+	MENU_ITEM "script" "" "Automated Linux mounting script"
+	MENU_ITEM "updates" "" "How to find updates"
+	MENU_ITEM "uses" "" "Some uses for this script"
+	MENU_ITEM "version" "" "Check for new version"
+fi
+
+# List valid actions
+######################################################################
+if test "$ACTION_BANNER" == "off"
+then
+	ACTION_BANNER "Enter A Valid Command"
+
+	SCRIPT_NAME="${0##*/}"
+
+	echo "Please enter a valid command.  To list commands enter:"$'\n'$'\n'$"$SCRIPT_NAME help"
+
+	LIST_BACKUPS
+fi
+
+# Display footer
+######################################################################
+if test ${CONFIG_ARRAY[DISCLAIMER]} == "off"
+then
+	echo $'\n'
+else
+	DISPLAY_FOOTER
+fi
+
