@@ -94,7 +94,7 @@ You may do this totally manually or if on Linux use the **recovery.sh** file ass
 
 **Now use a live boot environment from same major version as your installed environment!** It has been discovered that mixing versions can cause issues.  For example your installed system is 16.04 and you use a 17.10 boot image.  While it might seem like it shouldn't matter it does at times.  So if on 16.04 use a 16.04 boot image.
 
-1) Boot off a live image on disc, USB, or network
+1) Boot off a live image on disc, USB, or network.
 2) Mount your drive(s) so your system's / and /home are mounted somewhere then chroot into that environment. This is made really easy and handled automatically by the **recovery.sh** script for Linux users.  If you wish to do this manually see "Setting Up A Chrooted Environment" below.
 3) Now run **cya restore** and follow the onscreen instructions.
 4) Once files have been restored restart your system ejecting any images so your system boots off the recovered installed OS.
@@ -164,9 +164,15 @@ DISCLAIMER="off"
 
 ## Scheduling
 
+### Wrapper
+
+You'll find a wrapper file in the wrapper directory.  This is provided just in case your environment requires such a file.  You see some setups will allow you to execute CYA directly from a scheduler.  Others however will fail because they start in a SH environment and don't want to switch to BASH.
+
+Therefore if your system doesn't like calling CYA directly then use the wrapper script to call CYA and use your scheduled method: SystemD, cron, anacron, etc to call the wrapper script.
+
 #### SystemD
 
-In this project is a systemd directory which contains two files to get CYA working with systemd.
+In this project is a systemd directory which contains two files to get CYA working with systemd.  *If necessary use the wrapper file!*
 
 1) cya.service = This sets up the service for systemd.  **You'll need to edit this file** to change the path to where you installed the CYA program.  Plus if you want to use the manual backup method you'll need to alter the command path.
 
@@ -201,7 +207,7 @@ Now delete cya.service and cya.timer files.  That's it.
 
 #### Crontab
 
-It is recommended you crontab this using root or setup a user that doesn't need to enter the sudo password.
+It is recommended you crontab this using root or setup a user that doesn't need to enter a sudo password.  *If necessary use the wrapper file!*
 
 The example entry below will run cya at every Monday at 2:05 am with output dumped into /dev/null.
 
