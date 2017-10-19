@@ -1,7 +1,7 @@
 #!/bin/bash
 
 : <<HEADER
-Cover Your Ass(ets) v1.0 on 12 October 2017
+Cover Your Ass(ets) v1.3 on 19 October 2017
 Copyright (c) 2017 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="1.0"
+VERSION="1.3"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
@@ -32,14 +32,49 @@ ACTION_BANNER="off"
 action=$1
 
 # Core backup directories
-BACKUP_DIRECTORIES=(/boot/ /bin/ /etc/ /var/ /lib/ /lib32/ /lib64/ /root/ /sbin/ /usr/)
+BACKUP_DIRECTORIES=(/bin/ /boot/ /etc/ /var/ /lib/ /lib32/ /lib64/ /opt/ /root/ /sbin/ /snap/ /usr/)
 
 ####################################################################
 # Load configuration file and set database
 ####################################################################
 
+# Recover Mode
+RECOVER_MODE="off"
+
+# Base dir - use for recovery mode root
+BASE_DIR=""
+
 # Get home directory
 HOME_DIR="/home/cya"
+
+# Check for restore mode
+if [ ! -d "${HOME_DIR}" ]
+then
+	RECOVER_DIR="/mnt/cya/home/cya"
+
+	# If recovery directory is detected setup environment
+	if [ -d "${RECOVER_DIR}" ]
+	then
+		# Reassign home directory to recovery directory, then set base dir
+		HOME_DIR=${RECOVER_DIR}
+		BASE_DIR="/mnt/cya"
+
+		# Turn on recover mode
+		RECOVER_MODE="on"
+
+		# Prevent certain functions
+		DISABLED_ACTIONS=(keep remove save script version)
+		for DISABLED_ACTION in "${DISABLED_ACTIONS[@]}"
+		do
+			if test "$DISABLED_ACTION" == "$action"
+			then
+				echo "☀ $TITLE v$VERSION ☀"$'\n'
+				echo "-> $action <- command is disabled in recovery mode!"
+				exit
+			fi
+		done
+	fi
+fi
 
 # Restore directory
 RESTORE_DIR="$HOME_DIR/points"
@@ -49,6 +84,9 @@ CONFIG_FILE="$HOME_DIR/cya.conf"
 
 # Last run file
 LAST_RUN_FILE="$HOME_DIR/LAST_RUN"
+
+# Backup files restore directory
+CYA_BACKUP_FILES_DIR="cya-backup-files"
 
 # Declare CONFIG_ARRAY
 declare -A CONFIG_ARRAY
@@ -75,6 +113,13 @@ then
 	then
 		IFS=' ' read -a DATA <<< "${CONFIG_ARRAY[BACKUP_DIRECTORIES]}"
 		BACKUP_DIRECTORIES=("${BACKUP_DIRECTORIES[@]}" "${DATA[@]}")
+	fi
+
+	# Update BACKUP FILES
+	if [[ CONFIG_ARRAY[BACKUP_FILES] ]]
+	then
+		IFS=' ' read -a DATA <<< "${CONFIG_ARRAY[BACKUP_FILES]}"
+		BACKUP_FILES=("${BACKUP_FILES[@]}" "${DATA[@]}")
 	fi
 fi
 
@@ -131,6 +176,15 @@ COMMAND_CHECK() {
 	command -v grep >/dev/null 2>&1 || {
 		DISPLAY_PACKAGE_INSTALL "grep" "grep" "grep"
 	}
+
+	# If not in recovery mode check additonal commands
+	if test "$RECOVER_MODE" == "off"
+	then
+		# Check for curl
+		command -v curl >/dev/null 2>&1 || {
+			DISPLAY_PACKAGE_INSTALL "curl" "curl" "curl"
+		}
+	fi
 
 	# If command_list_status is  fail then exit
 	if test "$command_list_status" == "fail"
@@ -243,7 +297,13 @@ RESTORE_SCRIPT_INSERT() {
 # CYA Log write out
 ######################################################################
 CYA_LOG_INSERT() {
-	bash_cli=`sudo bash -c "echo '$1' >> /cya_log"`
+	if test "$RECOVER_MODE" == "on"
+	then
+		CYA_LOG_FILE="/mnt/cya/cya_log"
+	else
+		CYA_LOG_FILE="/cya_log"
+	fi
+	bash_cli=`sudo bash -c "echo '$1' >> $CYA_LOG_FILE"`
 }
 
 # SUDO call
@@ -263,9 +323,18 @@ SUDO_WRITEOUT() {
 RSYNC_BACKUP_GO() {
 	# Run actual backup
 	BACKUP_STATE="off"
+
+	# Process Directories
 	for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
 	do
-		if [ -d "${BACKUP_DIRECTORY}" ]
+		BACKUP_DIR="n"
+		# Check directory exists
+		if [ -d "$BASE_DIR${BACKUP_DIRECTORY}" ]
+		then
+			BACKUP_DIR="y"
+		fi
+
+		if test "$BACKUP_DIR" == "y"
 		then
 			# Process excludes
 			EXCLUDE_NAME="EXCLUDE_${BACKUP_DIRECTORY}"
@@ -285,26 +354,51 @@ RSYNC_BACKUP_GO() {
 					fi
 				done
 			fi
-			# Run backup
+			# Run directory backup
 			echo -n "Backing up ${BACKUP_DIRECTORY} ... "
-			SUDO_RUN "rsync -a --delete $EXCLUDE_DIRS${BACKUP_DIRECTORY} $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
+			SUDO_RUN "rsync -a --delete $EXCLUDE_DIRS$BASE_DIR${BACKUP_DIRECTORY} $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
 			echo " complete"
 			BACKUP_STATE="on"
 		fi
 	done
+
+	# Process Files
+	# If recovery mode switch to directory
+	if test "$RECOVER_MODE" == "on"
+	then
+		CURRENT_DIR=`pwd`
+		SUDO_RUN "cd $BASE_DIR"
+	fi
+
+	for BACKUP_FILE in "${BACKUP_FILES[@]}"
+	do
+		BACKUP_FI="n"
+		# Check files exists
+		if [ -f "$BASE_DIR${BACKUP_FILE}" ]
+		then
+			BACKUP_FI="y"
+		fi
+
+		if test "$BACKUP_FI" == "y"
+		then
+			# Run file backup
+			echo -n "Backing up ${BACKUP_FILE} ... "
+			SUDO_RUN "rsync -a --relative ${BACKUP_FILE} $RESTORE_DIR/$BACKUP_NAME/$CYA_BACKUP_FILES_DIR"
+			echo " complete"
+			BACKUP_STATE="on"
+		fi
+	done
+	# If recovery mode switch back to original directory
+	if test "$RECOVER_MODE" == "on"
+	then
+		SUDO_RUN "cd $CURRENT_DIR"
+	fi
 
 	# If backup successful write out data file
 	if test $BACKUP_STATE == "on"
 	then
 		GET_DATE
 		echo -n "Write out date file ... "
-		# Remove existing file, if necessary
-		##if [ -f "$RESTORE_DIR/$BACKUP_NAME/cya-date" ]
-		##then
-		##	SUDO_RUN "rm $RESTORE_DIR/$BACKUP_NAME/cya-date"
-		##fi
-		# Create and write out date
-		##SUDO_RUN "touch $RESTORE_DIR/$BACKUP_NAME/cya-date"
 		SUDO_WRITEOUT "$DATE" "$RESTORE_DIR/$BACKUP_NAME/cya-date"
 		echo "complete"
 	fi
@@ -333,9 +427,19 @@ RUN_RSYNC() {
 			# If cya_log exists remove
 			if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
 			then
-				echo -n "Removing /cya_log ... "
-				SUDO_RUN "rm /cya_log"
-				echo "complete"
+				if test "$RECOVER_MODE" == "on"
+				then
+					CYA_LOG_FILE="/mnt/cya/cya_log"
+				else
+					CYA_LOG_FILE="/cya_log"
+				fi
+				# Remove cya_log if necessary
+				if [ -f "$CYA_LOG_FILE" ]
+				then
+					echo -n "Removing $CYA_LOG_FILE ... "
+					SUDO_RUN "rm $CYA_LOG_FILE"
+					echo "complete"
+				fi
 			fi
 
 			# Set date
@@ -343,7 +447,7 @@ RUN_RSYNC() {
 			CYA_LOG_INSERT "$DATE"
 			CYA_LOG_INSERT "--------------------------------------------------------"
 			CYA_LOG_INSERT "Backup Profile Used: $BACKUP_NAME"
-			
+		
 			# Check backup directory exists
 			if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
 			then
@@ -443,8 +547,8 @@ RUN_RSYNC() {
 							CYA_LOG="Restoring ${BACKUP_DIRECTORY} ... "
 							echo -n "$CYA_LOG"
 
-							# Run rsync
-							SUDO_RUN "rsync -a$DELETE_FLAG $EXCLUDE_DIRS$RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY} ${BACKUP_DIRECTORY}"
+							# Run directory rsync
+							SUDO_RUN "rsync -a$DELETE_FLAG $EXCLUDE_DIRS$RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY} $BASE_DIR${BACKUP_DIRECTORY}"
 
 							CYA_LOG="complete"
 							echo "$CYA_LOG"
@@ -456,6 +560,59 @@ RUN_RSYNC() {
 
 					fi
 				done
+
+				# Now restore files
+				# Check to see if directory exists in backup
+				if [ -d "$RESTORE_DIR/$BACKUP_NAME/$CYA_BACKUP_FILES_DIR" ]
+				then
+
+					# Set restore flag
+					RESTORE_DO="y"
+
+					# If necessary confirm directory restore
+					if test $PROMPT_EACH == "y"
+					then
+						echo -n "Restore backup files? [y/n] "
+						read RESTORE_DO
+						if [ -z "$RESTORE_DO" ]
+						then
+							RESTORE_DO="n"
+						fi
+
+						if test "$RESTORE_DO" != "y"
+						then
+							echo "Skipping backup files"
+						fi
+					fi
+
+					# Run restore
+					if test $RESTORE_DO == "y"
+					then
+						CYA_LOG="Restoring backup files ... "
+						echo -n "$CYA_LOG"
+
+						# Run file rsync
+						SUDO_RUN "rsync -a $RESTORE_DIR/$BACKUP_NAME/$CYA_BACKUP_FILES_DIR/ $BASE_DIR"
+
+						CYA_LOG="complete"
+						echo "$CYA_LOG"
+						CYA_LOG_INSERT "Restoring backup files ... complete"
+
+						# Get file list
+						for BACKUP_FILE in "${BACKUP_FILES[@]}"
+						do
+							if [ -f "$RESTORE_DIR/$BACKUP_NAME/$CYA_BACKUP_FILES_DIR/${BACKUP_FILE}" ]
+							then
+								CYA_LOG="Restored ${BACKUP_FILE}"
+								echo "$CYA_LOG"
+								CYA_LOG_INSERT "$CYA_LOG"
+							fi
+						done
+
+						# Set status
+						RESTORE_STATUS="y"
+					fi
+				fi
 
 				# Print reboot if restore was done
 				if test $RESTORE_STATUS == "y"
@@ -535,6 +692,13 @@ fi
 if test "$action" == "restore"
 then
 	ACTION_BANNER "Restore"
+
+	# Only run in restore mode
+	if test  "$RECOVER_MODE" != "on"
+	then
+		FAILED_BANNER "restore command doesn't work when your system is booted off the installed OS.  Please boot off a live image and try again."
+		exit
+	fi
 
 	# Check with user
 	echo "(((WARNING))) You are about to begin the restore process which WILL alter the system's operating files!!! It is best practice to restore a system from a live boot environment using a CD, USB, or network image.  Then chrooting to the installed OS device."$'\n'
@@ -793,13 +957,29 @@ fi
 ######################################################################
 if test "$action" == "directories"
 then
-	ACTION_BANNER "Directories Backing Up"
+	ACTION_BANNER "Directories & Files Backing Up"
 
-	# List directories
+	echo "Directories:"$'\n'$"---------------------------------------------"
+
+	# Check directories
 	for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
 	do
 		echo -n "${BACKUP_DIRECTORY}" ...
 		if [ -d "${BACKUP_DIRECTORY}" ]
+		then
+			echo " yes"
+		else
+			echo " skipping - DOESN'T EXIST!"
+		fi		
+	done
+
+	echo $'\n'$"Files:"$'\n'$"---------------------------------------------"
+
+	# Check files
+	for BACKUP_FILE in "${BACKUP_FILES[@]}"
+	do
+		echo -n "${BACKUP_FILE}" ...
+		if [ -f "${BACKUP_FILE}" ]
 		then
 			echo " yes"
 		else
@@ -853,6 +1033,19 @@ EXCLUDE_/etc/=\"logs/ conf/\"
 EXCLUDE_/var/=\"tmp/ logs/\"
 
 ------------------------------------------------------------
+• Add specific files to include in backup:
+
+You are able to backup specific files instead of whole directories.  You should keep in mind this is only necessary for directories not included in the backup.  Also files will be stored in a subdirectory called \"cya-backup-files\" inside the backup profile directory.
+
+BACKUP_FILES=\"\"
+
+Now between the quotes add the full path to files separated by a space.
+
+Example:
+
+BACKUP_FILES=\"/custom/my_log /custom/sudir/config /app2/config/settings/\"
+
+------------------------------------------------------------
 • Turn off disclaimer notice:
 
 All you need to do is set the variable DISCLAIMER to off
@@ -891,7 +1084,7 @@ then
 		then
 			MSG="🗹 LATEST VERSION!"
 		else
-			MSG="🗷 UPGRADED REQUIRED! VERSIONS DO NOT MATCH!"
+			MSG="🗷 UPGRADE REQUIRED! VERSIONS DO NOT MATCH!"
 		fi
 	fi
 	echo "$MSG"$'\n'
@@ -925,7 +1118,7 @@ then
 
 	# Create mount point
 	RESTORE_SCRIPT_INSERT "# Create mount point"
-	RESTORE_SCRIPT_INSERT "sudo mkdir /mnt/cya"
+	RESTORE_SCRIPT_INSERT "sudo mkdir -p /mnt/cya"
 	RESTORE_SCRIPT_INSERT ""
 
 	# Get root filesystem
@@ -942,6 +1135,7 @@ then
 		IFS=' ' read -a DATA <<< "$HOME_DEVICE"
 		RESTORE_SCRIPT_INSERT "# Mount home filesystem"
 		RESTORE_SCRIPT_INSERT "sudo mount ${DATA[0]} /mnt/cya/home/"
+		RESTORE_SCRIPT_INSERT ""
 	fi
 
 	# Add necessary mount points here
@@ -951,40 +1145,14 @@ then
 	RESTORE_SCRIPT_INSERT "# Ex: sudo mount /dev/sda4 /mnt/cya/backups/"
 	RESTORE_SCRIPT_INSERT ""
 
-	# Check for necessary commands and if not there copy
-	RESTORE_SCRIPT_INSERT "SYSTEM_DIRECTORIES=(/bin/ /usr/bin/ /dev/)" 
-	RESTORE_SCRIPT_INSERT "for SYSTEM_DIRECTORY in \"\${SYSTEM_DIRECTORIES[@]}\""
-	RESTORE_SCRIPT_INSERT "do"
-	RESTORE_SCRIPT_INSERT "if [ ! -d \"/mnt/cya\${SYSTEM_DIRECTORY}\" ]"
-	RESTORE_SCRIPT_INSERT "then"
-	RESTORE_SCRIPT_INSERT "sudo mkdir -p /mnt/cya\${CSYSTEM_DIRECTORY}"
-	RESTORE_SCRIPT_INSERT "fi"
-	RESTORE_SCRIPT_INSERT "done"
-	RESTORE_SCRIPT_INSERT ""
-	RESTORE_SCRIPT_INSERT "# Check for necessary commands"
-	RESTORE_SCRIPT_INSERT "CHECK_COMMANDS=(/bin/bash /bin/cp /bin/date /bin/ls /bin/mkdir /usr/bin/rsync /usr/bin/touch /usr/bin/sudo /dev/null)" 
-	RESTORE_SCRIPT_INSERT "for CHECK_COMMAND in \"\${CHECK_COMMANDS[@]}\""
-	RESTORE_SCRIPT_INSERT "do"
-	RESTORE_SCRIPT_INSERT "if [ ! -f \"/mnt/cya\${CHECK_COMMAND}\" ]"
-	RESTORE_SCRIPT_INSERT "then"
-	RESTORE_SCRIPT_INSERT "sudo cp \${CHECK_COMMAND} /mnt/cya\${CHECK_COMMAND}"
-	RESTORE_SCRIPT_INSERT "fi"
-	RESTORE_SCRIPT_INSERT "done"
-	RESTORE_SCRIPT_INSERT ""
-
-	# Alter hostname to prevent errors with sudo hostname
-	RESTORE_SCRIPT_INSERT "sudo hostname 127.0.0.1"
-	RESTORE_SCRIPT_INSERT ""
-
 	# Print command for user
 	RESTORE_SCRIPT_INSERT "echo \"Run the cya recovery program by issuing the following command:\""
-	RESTORE_SCRIPT_INSERT "echo \"/home/cya/cya restore\""
+	RESTORE_SCRIPT_INSERT "echo \"sudo /mnt/cya/home/cya/cya restore\""
 	RESTORE_SCRIPT_INSERT ""
 
-	# Set chroot
-	RESTORE_SCRIPT_INSERT "# Chroot call"
-	RESTORE_SCRIPT_INSERT "sudo chroot /mnt/cya/"
-	RESTORE_SCRIPT_INSERT ""
+	# Run the restore command
+	RESTORE_SCRIPT_INSERT "# Run restore"
+	RESTORE_SCRIPT_INSERT "sudo /mnt/cya/home/cya/cya restore"
 
 	# Set correct permissions - root only
 	SUDO_RUN "chmod 755 $HOME_DIR/recovery.sh"

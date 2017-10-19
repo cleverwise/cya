@@ -1,0 +1,14 @@
+1.3 - 19 October 2017
+* Fixed typos
+
+1.2 - 18 October 2017
+* Added ability to backup specific files
+
+1.1 - 17 October 2017
+* Altered restore script and restore method by dropping chroot
+* Prevent restore command in normal mode
+* Prevent keep, remove, save, script commands in restore mode
+* Added /opt/ /snap/ to standard backup directories
+
+1.0 - 12 October 2017
+* Original release

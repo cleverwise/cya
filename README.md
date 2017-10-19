@@ -86,36 +86,30 @@ Note the overwrite flag, which tells cya it is okay to overwrite files in backup
 
 ###	Recovery
 
-If you find your system in a situation where things aren't right then it is time to restore it.  Now should you have a known single file issue it is eaiser just to use the cp command to restore from a backup profile to the live system.
+If you find your system in a situation where things aren't right then it is time to restore it.  Now should you have a known single file issue it would be faster to restore that single file, however you will need to watch out for ownership and permissions.  Thus the cp command may or may not be enough depending on the situation.
 
 Still if you have a more major issue or you aren't sure of the trouble then a full rollback is in order.
 
 You may do this totally manually or if on Linux use the **recovery.sh** file assuming you created one.  You see for best success you really should do the recovery in a live environment booted from a disc, USB, or network image.  Why?  Because you'll need to overwrite running files that are locked.  So ideally these files should **NOT** be loaded and in use thus the need for a live environment.
 
-**Now use a live boot environment from same major version as your installed environment!** It has been discovered that mixing versions can cause issues.  For example your installed system is 16.04 and you use a 17.10 boot image.  While it might seem like it shouldn't matter it does at times.  So if on 16.04 use a 16.04 boot image.
+**Notice: For best results use a live boot environment from same major version as your installed environment!** It has been discovered that mixing versions can cause issues.  For example your installed system is 16.04 and you use a 17.10 boot image.  While it might seem like it shouldn't matter it does at times.  So if on 16.04 use a 16.04 boot image.
 
 1) Boot off a live image on disc, USB, or network.
-2) Mount your drive(s) so your system's / and /home are mounted somewhere then chroot into that environment. This is made really easy and handled automatically by the **recovery.sh** script for Linux users.  If you wish to do this manually see "Setting Up A Chrooted Environment" below.
-3) Now run **cya restore** and follow the onscreen instructions.
-4) Once files have been restored restart your system ejecting any images so your system boots off the recovered installed OS.
+2) Mount your drive(s) so your system's / and /home are mounted to the **/mnt/cya** directory. This is made really easy and handled automatically by the **recovery.sh** script for Linux users.  If you wish to do this manually see "Setting Up Restore Environment Manually" below.
+3) Now run **sudo /mnt/cya/home/cya/cya restore** and follow the onscreen instructions.  This will be done automatically when using the **recovery.sh** script.
+4) Once files have been restored restart your system along with ejecting any images so your system boots off the recovered installed OS.
 5) Done.  You should now be in your recovered operating system.  Now don't forget to run any necessary updates (unless updating was the issue and you need to do some research).
 
-##### Setting Up A Chrooted Environment
+##### Setting Up Restore Environment Manually
 
 1) Boot off a live image on disc, USB, or network.
-2) At the command prompt create a directory to be used to mount your drive(s).  For example /mnt/cya
+2) At the command prompt create a directory to be used to mount your drive(s).  For example /mnt/cya  
 shell> **sudo mkdir -p /mnt/cya**
 3) Now you need to mount your / and /home (if on another partition) into the /mnt/cya point.  Below are **ONLY** examples:
-shell> sudo mount /dev/sda1 /mnt/cya
+shell> sudo mount /dev/sda1 /mnt/cya  
 shell> sudo mount /dev/sda3 /mnt/cya/home
-4) Now chroot into the environment by issuing the following command:
-shell> **sudo chroot /mnt/cya**
-
-#### Troubleshooting
-
-Why do I keep seeing "sudo: unable to resolve host HOSTNAME: Connection refused"?
-
-You may ignore this error as the restore process is still okay.  So why the error?  This happens if the chrooted enviornment doesn't have the hostname correctly pointing to 127.0.0.1 in the /etc/hosts file.  ***The error means nothing to the restore process.***
+4) Now execute the restore command to start the process  
+shell> **sudo /mnt/cya/home/cya/cya restore**
 
 ## Customizing
 
@@ -145,15 +139,27 @@ Example:
 
 Let’s say we want to exclude /var/tmp/ and /var/logs/ which are inside /var/, obviously.
 
-EXCLUDE_/var/=”tmp/ logs/”
+EXCLUDE_/var/=”tmp/ logs/”  
 
 You simply repeat for additional directories with EXCLUDE_/dir/ one per line.
 Example:
 
-EXCLUDE_/etc/=”logs/ conf/”
-EXCLUDE_/var/=”tmp/ logs/”
+EXCLUDE_/etc/=”logs/ conf/”  
+EXCLUDE_/var/=”tmp/ logs/”  
 
-3) Once completed save and close file.  
+3) Once completed save and close file. 
+
+#### Add specific files to include in backup:
+
+You are able to backup specific files instead of whole directories.  You should keep in mind this is only necessary for directories not included in the backup.  Also files will be stored in a subdirectory called "**cya-backup-files**" inside the backup profile directory.
+
+BACKUP_FILES=""
+
+Now between the quotes add the full path to files separated by a space.
+
+Example:
+
+BACKUP_FILES="/custom/my_log /custom/sudir/config /app2/config/settings/" 
 
 #### Disable Disclaimer
 
@@ -190,7 +196,7 @@ If you want something other than week modify:
 
 4) Now enable the cya.timer unit by issuing the following two commands at the prompt:
 
-shell> **sudo systemctl enable cya.timer**
+shell> **sudo systemctl enable cya.timer**  
 shell> **sudo systemctl start cya.timer**
 
 That's it! If you want to see the status issue the following command at the prompt:
@@ -212,3 +218,4 @@ It is recommended you crontab this using root or setup a user that doesn't need 
 The example entry below will run cya at every Monday at 2:05 am with output dumped into /dev/null.
 
 5 2 * * 1 /home/developer/bin/cya save >/dev/null 2>&1
+
