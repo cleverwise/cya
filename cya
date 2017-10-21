@@ -1,7 +1,7 @@
 #!/bin/bash
 
 : <<HEADER
-Cover Your Ass(ets) v1.3 on 19 October 2017
+Cover Your Ass(ets) v1.4 on 20 October 2017
 Copyright (c) 2017 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="1.3"
+VERSION="1.4"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
@@ -40,6 +40,9 @@ BACKUP_DIRECTORIES=(/bin/ /boot/ /etc/ /var/ /lib/ /lib32/ /lib64/ /opt/ /root/ 
 
 # Recover Mode
 RECOVER_MODE="off"
+
+# Max Saves
+MAX_SAVES="3"
 
 # Base dir - use for recovery mode root
 BASE_DIR=""
@@ -78,6 +81,9 @@ fi
 
 # Restore directory
 RESTORE_DIR="$HOME_DIR/points"
+
+# Archive directory
+ARCHIVES_DIR="$HOME_DIR/archives"
 
 # Load configuration file
 CONFIG_FILE="$HOME_DIR/cya.conf"
@@ -120,6 +126,22 @@ then
 	then
 		IFS=' ' read -a DATA <<< "${CONFIG_ARRAY[BACKUP_FILES]}"
 		BACKUP_FILES=("${BACKUP_FILES[@]}" "${DATA[@]}")
+	fi
+
+	# Update MAX SAVES
+	if [[ CONFIG_ARRAY[MAX_SAVES] ]]
+	then
+		# If not blank
+		if [ -n "${CONFIG_ARRAY[MAX_SAVES]}" ]
+		then
+			# Verify number
+			CHK_MAX_SAVES="${CONFIG_ARRAY[MAX_SAVES]}"
+			re='^[0-9]+$'
+			if [[ "$CHK_MAX_SAVES" =~ $re ]]
+			then
+				MAX_SAVES=$CHK_MAX_SAVES
+			fi
+		fi
 	fi
 fi
 
@@ -194,7 +216,7 @@ COMMAND_CHECK() {
 	fi
 
 	# Create directories, if necessary: home, restore, restore point numbers 1-3
-	CHECK_DIRECTORIES=($HOME_DIR $RESTORE_DIR $RESTORE_DIR/1 $RESTORE_DIR/2 $RESTORE_DIR/3)
+	CHECK_DIRECTORIES=($HOME_DIR $RESTORE_DIR)
 
 	for CHECK_DIRECTORY in "${CHECK_DIRECTORIES[@]}"
 	do
@@ -318,6 +340,36 @@ SUDO_WRITEOUT() {
 	bash_cli=`sudo bash -c "echo '$1' > $2"`
 }
 
+# Run Archive - MUST BE BEFORE RUN_RSYNC
+######################################################################
+RUN_ARCHIVE() {
+	# Run archive if backup profile exists
+	if [ -d "$RESTORE_DIR/$E_BACKUP_NAME" ]
+	then
+		# If archive directory doesn't exist create it
+		if [ ! -d "$ARCHIVES_DIR" ]
+		then
+			echo -n "Creating archives directory ... "
+			SUDO_RUN "mkdir $ARCHIVES_DIR"
+			echo "complete"
+		fi
+
+		# Verify filename not in use and rename if necessary
+		TARGZ_FILE="$ARCHIVES_DIR/$E_BACKUP_NAME.tar.gz"
+		if [ -f "$TARGZ_FILE" ]
+		then
+			UNIXTIME=`date +"%s"`
+			TARGZ_FILE="$ARCHIVES_DIR/$E_BACKUP_NAME-$UNIXTIME.tar.gz"
+		fi
+
+		# Tar and gzip
+		SUDO_RUN "tar -cPvzf $TARGZ_FILE $RESTORE_DIR/$E_BACKUP_NAME/"
+
+		# Remove backup directory
+		SUDO_RUN "rm -Rf $RESTORE_DIR/$E_BACKUP_NAME"
+	fi
+}
+
 # RSYNC Backup Run - MUST BEFORE RUN_RSYNC
 ######################################################################
 RSYNC_BACKUP_GO() {
@@ -363,11 +415,15 @@ RSYNC_BACKUP_GO() {
 	done
 
 	# Process Files
+	# SETPATH must have a dot in recovery mode otherwise files won't sync right
+	SETPATH=""
+
 	# If recovery mode switch to directory
 	if test "$RECOVER_MODE" == "on"
 	then
 		CURRENT_DIR=`pwd`
-		SUDO_RUN "cd $BASE_DIR"
+		cd $BASE_DIR
+		SETPATH="."
 	fi
 
 	for BACKUP_FILE in "${BACKUP_FILES[@]}"
@@ -383,7 +439,7 @@ RSYNC_BACKUP_GO() {
 		then
 			# Run file backup
 			echo -n "Backing up ${BACKUP_FILE} ... "
-			SUDO_RUN "rsync -a --relative ${BACKUP_FILE} $RESTORE_DIR/$BACKUP_NAME/$CYA_BACKUP_FILES_DIR"
+			SUDO_RUN "rsync -a --relative $SETPATH${BACKUP_FILE} $RESTORE_DIR/$BACKUP_NAME/$CYA_BACKUP_FILES_DIR"
 			echo " complete"
 			BACKUP_STATE="on"
 		fi
@@ -391,7 +447,7 @@ RSYNC_BACKUP_GO() {
 	# If recovery mode switch back to original directory
 	if test "$RECOVER_MODE" == "on"
 	then
-		SUDO_RUN "cd $CURRENT_DIR"
+		cd $CURRENT_DIR
 	fi
 
 	# If backup successful write out data file
@@ -642,6 +698,16 @@ RUN_RSYNC() {
 				SUDO_WRITEOUT "$4" "$LAST_RUN_FILE"
 				echo "complete"
 			fi
+
+			# If archive is on
+			if test $3 == "manual"
+			then
+				if test $4 == "archive"
+				then
+					E_BACKUP_NAME=$BACKUP_NAME
+					RUN_ARCHIVE "$E_BACKUP_NAME"
+				fi
+			fi
 		fi
 	# End sync type
 	fi
@@ -701,7 +767,7 @@ then
 	fi
 
 	# Check with user
-	echo "(((WARNING))) You are about to begin the restore process which WILL alter the system's operating files!!! It is best practice to restore a system from a live boot environment using a CD, USB, or network image.  Then chrooting to the installed OS device."$'\n'
+	echo "(((WARNING))) You are about to begin the restore process which WILL alter the system's operating files!!! It is best practice to restore a system from a live boot environment using a CD, USB, or network image."$'\n'
 	echo -n "Are you sure you want to continue this process? [y/N] "
 	read CONTINUE_STATUS
 
@@ -825,6 +891,9 @@ if test "$action" == "keep"
 then
 	ACTION_BANNER "Manual Backup"
 
+	# Set flag
+	FLAG="0"
+
 	# Set type
 	TYPE="long"
 	if [[ $2 ]]
@@ -869,6 +938,15 @@ then
 				exit
 			fi
 		fi
+
+		# If archive is on set
+		if [ -n "$4" ]
+		then
+			if test "$4" == "archive"
+			then
+				FLAG="$4"
+			fi
+		fi
 	else
 		# Get custom backup directory and check
 		for ((c=1; c<=20; c++))
@@ -887,7 +965,50 @@ then
 	fi
 
 	# Perform Rsync
-	RUN_RSYNC backup $E_BACKUP_NAME manual 0
+	RUN_RSYNC backup $E_BACKUP_NAME manual $FLAG
+fi
+
+# Archive
+######################################################################
+if test "$action" == "archive"
+then
+	ACTION_BANNER "Archive"
+
+	# Choose the backup to use for archiving
+	LIST_BACKUPS
+	echo $'\n'
+
+	for ((c=1; c<=20; c++))
+	do
+		echo -n "Enter backup name to restore: "
+		read BACKUP_NAME
+		SANATIZE_VAR $BACKUP_NAME
+		BACKUP_NAME="$clean_var"
+		if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
+		then
+			E_BACKUP_NAME="$BACKUP_NAME"
+			break
+		else
+			FAILED_BANNER "Invalid name!"
+		fi
+	done
+
+	# If no backup name abort
+	if [ -z $E_BACKUP_NAME ]
+	then
+		echo "Aborting... no valid backup name provided"
+	else
+		echo $'\n'$"$E_BACKUP_NAME is about to be archived!"$'\n'$'\n'$"This will:"
+		echo "- tar and gzip the files"$'\n'$"- move file to $ARCHIVES_DIR"$'\n'$"- remove $E_BACKUP_NAME from list"$'\n'$"- require manual untarring before using restore command on profile"$'\n'
+		echo -n "Do you want process? [y/N]: "
+		read PROCESS
+		if test "$PROCESS" == "y"
+		then
+			echo -n "Archiving $E_BACKUP_NAME in progress ... "
+			RUN_ARCHIVE "$E_BACKUP_NAME"
+			echo "complete"
+		fi
+	fi
 fi
 
 # Standard Backups
@@ -910,7 +1031,7 @@ then
 	# Update by 1
 	LAST_RUN_COUNT=$(($LAST_RUN_COUNT+1))
 	# If above 3 set to 1
-	if test $LAST_RUN_COUNT -gt 3
+	if test "$LAST_RUN_COUNT" -gt "$MAX_SAVES"
 	then
 		LAST_RUN_COUNT="1"
 	fi
@@ -964,12 +1085,12 @@ then
 	# Check directories
 	for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
 	do
-		echo -n "${BACKUP_DIRECTORY}" ...
+		echo -n "${BACKUP_DIRECTORY} ... "
 		if [ -d "${BACKUP_DIRECTORY}" ]
 		then
-			echo " yes"
+			echo "yes"
 		else
-			echo " skipping - DOESN'T EXIST!"
+			echo "skipping - DOESN'T EXIST!"
 		fi		
 	done
 
@@ -978,12 +1099,12 @@ then
 	# Check files
 	for BACKUP_FILE in "${BACKUP_FILES[@]}"
 	do
-		echo -n "${BACKUP_FILE}" ...
+		echo -n "${BACKUP_FILE} ... "
 		if [ -f "${BACKUP_FILE}" ]
 		then
-			echo " yes"
+			echo "yes"
 		else
-			echo " skipping - DOESN'T EXIST!"
+			echo "skipping - DOESN'T EXIST!"
 		fi		
 	done
 fi
@@ -1043,7 +1164,20 @@ Now between the quotes add the full path to files separated by a space.
 
 Example:
 
-BACKUP_FILES=\"/custom/my_log /custom/sudir/config /app2/config/settings/\"
+BACKUP_FILES=\"/custom/my_log /custom/sudir/config /app2/config/settings\"
+
+------------------------------------------------------------
+• Alter number of rotation backups:
+
+The default number of backups before rotating when using \"cya save\" is three (3).  However you may wish to change this number.  This is very easy.  Add or edit the following variable while placing the new number between quotes.
+
+Example:
+
+Let's say you want to alter this number to six (6) backups.
+
+MAX_SAVES=\"6\"
+
+Note: If you reduce the number higher profiles will NOT be removed.  So if you go from ten (10) to five (5) cya will start rotating at five (5) but backups six to ten will remain unless you remove them.
 
 ------------------------------------------------------------
 • Turn off disclaimer notice:
@@ -1113,7 +1247,7 @@ then
 	RESTORE_SCRIPT_INSERT "#!/bin/bash"
 	RESTORE_SCRIPT_INSERT ""
 	RESTORE_SCRIPT_INSERT "# Cover Your Ass(ets) Mounting Script v1.0"
-	RESTORE_SCRIPT_INSERT "# This script attempts to ready Linux system for cya by mounting and chrooting root filesystem"
+	RESTORE_SCRIPT_INSERT "# This script attempts to ready a Linux system for cya by mounting the filesystem"
 	RESTORE_SCRIPT_INSERT ""
 
 	# Create mount point
@@ -1205,6 +1339,9 @@ then
 
 	MENU_HEADER "Restoring"
 	MENU_ITEM "restore" " " "Restore the system"
+
+	MENU_HEADER "Archiving"
+	MENU_ITEM "archive" " " "Tar and gzip profiles"
 
 	MENU_HEADER "Other"
 	MENU_ITEM "configfile" "" "Configuration file help"

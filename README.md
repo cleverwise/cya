@@ -12,6 +12,8 @@ There are many other features such as the system will keep three separate copies
 
 In addition you are able to tell the system to skip directories so if you don't want /var/logs/ backed up with the /var/ directory no problem.
 
+**As stated above this utility does NOT touch data outside of configured directories.  Therefore your personal data is safe!**
+
 More information: [https://www.cyberws.com/bash/cya/](https://www.cyberws.com/bash/cya/)
 
 Need help using CYA? [Youtube Instruction Videos](https://www.youtube.com/channel/UCeQtI9fcAapQkiHph42NjWA)
@@ -68,7 +70,7 @@ There are multiple methods that may be issued from the commandline or called fro
 
 shell> **cya save**
 
-2) To provide a custom name for a backup that will **NOT** be overwritten: 
+2A) To provide a custom name for a backup that will **NOT** be overwritten: 
 
 shell> **cya keep**
 
@@ -78,11 +80,17 @@ shell> **cya keep name BACKUP_NAME**
 
 The BACKUP_NAME must be unique each time you run the script (see #3).  So using this method in a script attach a time stamp or random string.
 
-3) To provide a custom name for a backup that **WILL** overwrite:
+2B) To provide a custom name for a backup that **WILL** overwrite:
 
 shell> **cya keep name BACKUP_NAME overwrite**
 
 Note the overwrite flag, which tells cya it is okay to overwrite files in backup profile.
+
+2C) To backup and archive which will tar and gzip then move file to **/home/cya/archives** directory use the archive tag
+
+shell> **cya keep name BACKUP_NAME archive**
+
+This command *IS script safe* as a unix timestamp will be added to make unique filenames.  Also note this option will remove the backup profile directory and backup will *NOT* appear in the back up list.
 
 ###	Recovery
 
@@ -153,13 +161,31 @@ EXCLUDE_/var/=”tmp/ logs/”
 
 You are able to backup specific files instead of whole directories.  You should keep in mind this is only necessary for directories not included in the backup.  Also files will be stored in a subdirectory called "**cya-backup-files**" inside the backup profile directory.
 
+1) Open the following file in your text editor /home/cya/cya.conf
+2) Add or edit the following variable:
+
 BACKUP_FILES=""
 
 Now between the quotes add the full path to files separated by a space.
 
 Example:
 
-BACKUP_FILES="/custom/my_log /custom/sudir/config /app2/config/settings/" 
+BACKUP_FILES="/custom/my_log /custom/sudir/config /app2/config/settings" 
+
+#### Alter number of rotation backups:
+
+The default number of backups before rotating when using "**cya save**" is three (3).  However you may wish to change this number.  This is very easy.
+
+1) Open the following file in your text editor /home/cya/cya.conf
+2) Add or edit the following variable while placing the new number between quotes.
+
+Example:
+
+Let's say you want to alter this number to six (6) backups.
+
+MAX_SAVES="6"
+
+Note: If you reduce the number higher profiles will NOT be removed.  So if you go from ten (10) to five (5) cya will start rotating at five (5) but backups six to ten will remain unless you remove them.
 
 #### Disable Disclaimer
 
@@ -167,6 +193,10 @@ BACKUP_FILES="/custom/my_log /custom/sudir/config /app2/config/settings/"
 2) Add the following variable on its own line:
 DISCLAIMER="off"
 3) Once completed save and close file.  
+
+#### Changing Name Of A Backup Profile
+
+If you wish to rename a backup profile simply alter the name of the directory/folder in **/home/cya/points** to the desired name.  That's it.  However if you have scheduled tasks that call the backup profile then you'll need to edit your command call to the new name.
 
 ## Scheduling
 
