@@ -231,7 +231,7 @@ shell> **sudo systemctl start cya.timer**
 
 That's it! If you want to see the status issue the following command at the prompt:
 
-shell> **sudo systemctl status backup**
+shell> **sudo systemctl status cya**
 
 Notes:
 * If you want multiple intervals you'll need to create multiple sets of these files and alter the command and timing functions accordingly.  For example: cya-weekly.service and cya-weekly.timer, cya-monthly.service and cya-monthly.timer, cya-daily.service and cya-daily.timer

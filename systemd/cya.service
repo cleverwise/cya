@@ -1,5 +1,5 @@
 [Unit]
-Description=Run rsync
+Description=Run cya
 
 [Service]
 User=root
