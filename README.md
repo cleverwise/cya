@@ -2,15 +2,15 @@
 
 This open source and freely available tool is written to run in the BASH shell and allows for easy snapshots and rollbacks of your Linux (any flavor) or other *nix operating system.  It is filesystem agnostic (EXT2/3/4, XFS, UFS, GPFS, reiserFS, JFS, BtrFS, ZFS), easy to remove, and is portable.  Plus, obviously, you are free to verify all the code.  This system only backups and restores the operating system itself and not your actual user data.  **This is a system restore utility.**
 
-The underlying backup method is actually rsync -  a well known and vetted system.  However CYA makes it really easy to create rolling backups.  This is because with a single command it will copy all key directories like /bin/ /lib/ /usr/ /var/ and others.  You are even free to add your own unique directories into the configuration file so CYA will pick those up as well.  Yes this process may be automated with crontab, anacron, systemd, etc.
+The underlying backup method is actually rsync -  a well known and vetted system.  However CYA makes it super simple to create rolling backups.  This is because with a **single command** it will copy all key directories like /bin/ /lib/ /usr/ /var/ and several others.  You are even free to add your own unique directories and files into the configuration so CYA will pick those up as well.  You are even able to configure the system to skip subdirectories so if you don't want /var/logs/ backed up with the /var/ directory no problem.
 
-When it comes time to restore CYA will rollback your operating system using the backup profile you specify.  This undoes the damage caused by bad updates, configuration changes, intrusions/hacks, etc! These files are stored so you may easily access them even without a complete rollback.  This way if you change a configuration file you may manually restore that single file without having to restore the whole system.
+When it comes time to restore CYA will rollback your operating system using the backup profile you specify.  This undoes the damage caused by bad updates, configuration changes, intrusions/hacks, etc! These files are stored so you may easily access them even without a complete rollback using your terminal or file manager.  This way if you change a configuration file you may manually restore that single file without having to restore the whole system.
 
-However CYA does allow for partial restores, for example just a single directory.  Also there is a recovery script to help automate remounting of your system drives when you restore off a live CD, USB, or network image (the recommended way!).
+However CYA does allow for partial restores, for example just a single directory.  You are also able to generate a custom recovery script to automate the mounting of your system partition(s) when you restore off a live CD, USB, or network image.
 
-There are many other features such as the system will keep three separate copies.  So that way you have multiple restore points.  Then on the fourth snapshot it will overwrite the first.  You may also create long term backups that are kept until you delete them.
+There are many other features such as the system will keep three separate copies, which is configurable.  So that way you have multiple restore points.  Then on the fourth snapshot it will overwrite the first, on the fifth it will overwrite the second, etc.  As stated the number is configurable.  You may also create long term backups that are kept until you delete them.  An archiving function is also included in this powerful utility.
 
-In addition you are able to tell the system to skip directories so if you don't want /var/logs/ backed up with the /var/ directory no problem.
+CYA even supports mixing all three methods at the same time: rotating, manual, and archiving.  However best of all these processes may be automated with crontab, anacron, systemd, etc.
 
 **As stated above this utility does NOT touch data outside of configured directories.  Therefore your personal data is safe!**
 
