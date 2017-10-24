@@ -10,7 +10,7 @@ However CYA does allow for partial restores, for example just a single directory
 
 There are many other features such as the system will keep three separate copies, which is configurable.  So that way you have multiple restore points.  Then on the fourth snapshot it will overwrite the first, on the fifth it will overwrite the second, etc.  As stated the number is configurable.  You may also create long term backups that are kept until you delete them.  An archiving function is also included in this powerful utility.
 
-CYA even supports mixing all three methods at the same time: rotating, manual, and archiving.  However best of all these processes may be automated with crontab, anacron, systemd, etc.
+CYA even supports mixing all three methods at the same time: rotating, manual, and archiving.  However best of all these processes may be automated with crontab, anacron, systemd, etc.  It is even super easy to call CYA from other scripts and processes!
 
 **As stated above this utility does NOT touch data outside of configured directories.  Therefore your personal data is safe!**
 
