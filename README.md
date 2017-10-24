@@ -16,7 +16,7 @@ In addition you are able to tell the system to skip directories so if you don't 
 
 More information: [https://www.cyberws.com/bash/cya/](https://www.cyberws.com/bash/cya/)
 
-Need help using CYA? [Youtube Instruction Videos](https://www.youtube.com/channel/UCeQtI9fcAapQkiHph42NjWA)
+Need help using CYA? [Youtube Instruction Videos](https://www.youtube.com/watch?v=fdH3Um4XNUs&list=PL7DdW0jxJRrEQfKXeuIzTWmPyomIp4k4Y)
 
 ----
 
