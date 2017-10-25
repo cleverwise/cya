@@ -247,5 +247,5 @@ It is recommended you crontab this using root or setup a user that doesn't need 
 
 The example entry below will run cya at every Monday at 2:05 am with output dumped into /dev/null.
 
-5 2 * * 1 /home/developer/bin/cya save >/dev/null 2>&1
+5 2 * * 1 /home/USER/bin/cya save >/dev/null 2>&1
 
