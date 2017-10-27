@@ -30,6 +30,8 @@ Need help using CYA? [Youtube Instruction Videos](https://www.youtube.com/watch?
 
 If contacting for technical support please see video manuals first.  I'll do my best to help troubleshoot but can't make any promises due to limited time.
 
+Contributors please see the "[Contributors Readme](contributors.md)" for important information.
+
 * Message through Github
 * [Contact Form on CyberWS](https://www.cyberws.com/contact-us/)
 
@@ -248,4 +250,8 @@ It is recommended you crontab this using root or setup a user that doesn't need 
 The example entry below will run cya at every Monday at 2:05 am with output dumped into /dev/null.
 
 5 2 * * 1 /home/USER/bin/cya save >/dev/null 2>&1
+
+#### Why was /home/cya choosen?
+
+Please see the "[Contributors Readme](contributors.md)" for very detailed information on this subject.
 
