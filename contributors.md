@@ -4,7 +4,7 @@ Obviously you are free to edit the code on your copy(ies) to tailor the utility 
 
 **Please read this document as it explains why certain actions were taken for the code.**
 
-## Date Updated: 27 October 2017
+## Date Updated: 28 October 2017
 
 ### General Points
 
@@ -46,7 +46,7 @@ While it is understood curl isn't always installed it is considered more secure 
 
 ### Why /home/cya/?
 
-This was a year long project.  Well it didn't take a year to write the code but it took well over half a year, due to needing to find time, before any was logic generated.  This allowed Jeremy O'Connell and Joe Collins plenty of time to discuss features, ideas, and layout.
+This was a year long project.  Well it didn't take a year to write the code but it took well over half a year, due to needing to find time, before any logic was generated.  This allowed Jeremy O'Connell and Joe Collins plenty of time to discuss features, ideas, and layout.
 
 This included where to put the backup files that cya would generate.  This location was not chosen on a whim.  So let's review some of the reasoning behind this choice.
 
