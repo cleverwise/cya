@@ -68,7 +68,7 @@ However we also realized many systems create the root file system / on one parti
 
 4) Then the discussion turned toward should we place the files in a user's home directory? For example: /home/joe/cya/ or something similar.
 
-This ended up be rejected after some additional investigation.  Why?
+This ended up being rejected after some additional investigation.  Why?
 
 Well there were several reasons: servers (and IoT), backups, and restoring.  So let's look at each one of these.
 
@@ -78,7 +78,7 @@ Dan, an admin, installs cya on a company server and runs cya.  It throws the fil
 
 Plus what about IoT devices? These devices can do all kinds of odd things to the /home/DEFAULT_USER/ directory.  We thought it would be safer outside of that directory.
 
-B) We didn't want to grow a user's home directory thus causing backups to grow unnecessarily.  So let's say we did use /home/mary/cya/ then when Mary backed up her home directory she would be backing up tens of GBs (or more) that are wasting backup space for files she probably doesn't care about having on her backup storage.
+B) We didn't want to grow a user's home directory thus causing backups to increase in size unnecessarily.  So let's say we did use /home/mary/cya/ then when Mary backed up her home directory she would be backing up tens of GBs (or more) that are wasting backup space for files she probably doesn't care about having on her backup storage.
 
 This utility is about system restoring not user data restoring.  Plus what happens if Mary wants to transfer her home directory to another system?  Now she has system restore files from another system!  What good is that?!
 
@@ -86,9 +86,9 @@ If Mary wants to backup /home/cya/ that is her call and easy to do, but she and 
 
 C) Finally even if we had ignored the two points above it would have made restoring harder.  Not impossible but harder.  By choosing /home/cya/ the restore system knows where the files are located.
 
-If we had used /home/mary/cya/ the restore system would have to figure this out *or* write a configuration file in /home/; for example /home/cya_path.  Therefore either way something was probably going to be written to /home. 
+If we had used /home/mary/cya/ the restore system would have to figure this out *or* write a configuration file in /home/; for example /home/cya_path.  Therefore either way something was probably going to be written to /home/. 
 
-You should keep in mind that cya can completely restore a system even to a blank root partition.  You can literally mount /home and run cya to have it copy **ALL** system directories and files back and thus restore to a complete working state from literally nothing.  So we don't want to depend on anything in the root partition.
+You should keep in mind that cya can completely restore a system even to a blank root partition.  You can literally mount /home/ and run cya to have it copy **ALL** system directories and files back.  This will completely restore the system to working state from literally nothing.  So we don't want to depend on anything in the root partition.
 
 Closing thoughts:
 
