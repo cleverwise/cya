@@ -28,9 +28,9 @@ This section will explain why certain functions were chosen and will develop ove
 
 *Order is random*
 
-1) Why was /home/cya used?
+1) Why was /home/cya/ used?
 
-See the "Why /home/cya?" section below for a lengthy explanation.
+See the "Why /home/cya/?" section below for a lengthy explanation.
 
 2) Error handling
 
@@ -44,7 +44,7 @@ This system was coded with best sudo practices, which means **only** calling sud
 
 While it is understood curl isn't always installed it is considered more secure than wget.  Curl is available in every major *nix, often a quick repo install away, and may be compiled too.  So sorry but wget suggestions will be rejected in favor of the more secure curl.
 
-### Why /home/cya?
+### Why /home/cya/?
 
 This was a year long project.  Well it didn't take a year to write the code but it took well over half a year, due to needing to find time, before any was logic generated.  This allowed Jeremy O'Connell and Joe Collins plenty of time to discuss features, ideas, and layout.
 
@@ -64,7 +64,7 @@ After some discussion we felt creating a new root filesystem directory isn't ide
 
 Well our attention turned to /home/.  This directory is on every major *nix system and if it is missing on some edge case it may be created.  We thought great! A directory that already exists so we avoid creating a new top level directory and since cya isn't backing up /home/ it is a win-win! 
 
-However we also realized many systems create the root file system / on one partition and put the bulk of the storage in /home/.  This is especially true for desktops were you'll see say 20-40GB for / and then hundreds GBs or more for /home/.  This means by using /home/ we won't be filling up the space on the root partition like we would have if say /cya/ was created.  So win-win-win!
+However we also realized many systems create the root file system / on one partition and put the bulk of the storage in /home/.  This is especially true for desktops where you'll see say 20-40GB for / and then hundreds GBs or more for /home/.  This means by using /home/ we won't be filling up the space on the root partition like we would have if say /cya/ was created.  So win-win-win!
 
 4) Then the discussion turned toward should we place the files in a user's home directory? For example: /home/joe/cya/ or something similar.
 
@@ -74,9 +74,9 @@ Well there were several reasons: servers (and IoT), backups, and restoring.  So 
 
 A) You should keep in mind cya was designed with desktops **AND servers AND IoT** in mind.  This is not just a desktop utility.  So let's say we choose a user's directory.
 
-Dan, an admin, installs cya on a company server and runs cya.  It throws the files into /home/dan/cya.  John comes along and needs to work with cya.  Now John needs to access Dan's home directory.  Does this make any sense?  Not to us.  The files should be stored more centrally and outside of Dan's home directory.
+Dan, an admin, installs cya on a company server and runs cya.  It throws the files into /home/dan/cya/.  John comes along and needs to work with cya.  Now John needs to access Dan's home directory.  Does this make any sense?  Not to us.  The files should be stored more centrally and outside of Dan's home directory.
 
-Plus what about IoT devices? These devices can do all kinds of odd things to the /home/DEFAULT_USER directory.  We thought it would be safer outside of that directory.
+Plus what about IoT devices? These devices can do all kinds of odd things to the /home/DEFAULT_USER/ directory.  We thought it would be safer outside of that directory.
 
 B) We didn't want to grow a user's home directory thus causing backups to grow unnecessarily.  So let's say we did use /home/mary/cya/ then when Mary backed up her home directory she would be backing up tens of GBs (or more) that are wasting backup space for files she probably doesn't care about having on her backup storage.
 
@@ -84,9 +84,9 @@ This utility is about system restoring not user data restoring.  Plus what happe
 
 If Mary wants to backup /home/cya/ that is her call and easy to do, but she and anyone else is opting in and not out.  We felt this was very important that people manually choose to backup cya files and not be "forced" to with their normal backups.  Plus it is very obvious cya is separate and where the files are located.
 
-C) Finally even if we had ignored the two points above it would have made restoring harder.  Not impossible but harder.  By choosing /home/cya the restore system knows where the files are located.
+C) Finally even if we had ignored the two points above it would have made restoring harder.  Not impossible but harder.  By choosing /home/cya/ the restore system knows where the files are located.
 
-If we had used /home/mary/cya the restore system would have to figure this out *or* written a system file to /home; for example  /home/cya_path.  Therefore either way something was probably going to be written to /home. 
+If we had used /home/mary/cya/ the restore system would have to figure this out *or* write a configuration file in /home/; for example /home/cya_path.  Therefore either way something was probably going to be written to /home. 
 
 You should keep in mind that cya can completely restore a system even to a blank root partition.  You can literally mount /home and run cya to have it copy **ALL** system directories and files back and thus restore to a complete working state from literally nothing.  So we don't want to depend on anything in the root partition.
 
@@ -94,9 +94,9 @@ Closing thoughts:
 
 The bottom line is /home/cya/ wasn't chosen on a whim.  It was not like we instantly said just throw the data in that directory.  Nope!  It was the topic of much discussion over quite some time.
 
-You may or may not have made the same choice.  However we had to choose something and once we took **ALL** the above points into consideration along with some now probably forgotten /home/cya came out the winner.
+You may or may not have made the same choice.  However we had to choose something and once we took **ALL** the above points into consideration along with some now probably forgotten /home/cya/ came out the winner.
 
-This is **NOT** just a desktop tool but a server and IoT tool so you can't make choices based just on desktop systems with a single human user.  While we could have had desktop and server modes this would have added extra complexity for no real gain.  So that too was rejected in the name of keeping things as simple and lean as possible.
+This is **NOT** just a desktop tool but a server and IoT tool so you can't make choices based only on desktop systems with a single human user.  While we could have had desktop and server modes this would have added extra complexity for no real gain.  So that too was rejected in the name of keeping things as simple and lean as possible.
 
 If you feel this violates some sacred file structure then edit your local copy or don't use this utility.
 
