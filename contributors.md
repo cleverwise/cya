@@ -88,7 +88,7 @@ C) Finally even if we had ignored the two points above it would have made restor
 
 If we had used /home/mary/cya/ the restore system would have to figure this out *or* write a configuration file in /home/; for example /home/cya_path.  Therefore either way something was probably going to be written to /home/. 
 
-You should keep in mind that cya can completely restore a system even to a blank root partition.  You can literally mount /home/ and run cya to have it copy **ALL** system directories and files back.  This will completely restore the system to working state from literally nothing.  So we don't want to depend on anything in the root partition.
+You should keep in mind that cya can completely restore a system even to a blank root partition.  You can literally mount /home/ and run cya to have it copy **ALL** system directories and files back.  This will completely restore the system to a working state from literally nothing.  So we don't want to depend on anything in the root partition.
 
 Closing thoughts:
 
