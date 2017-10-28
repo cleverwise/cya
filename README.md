@@ -251,7 +251,7 @@ The example entry below will run cya at every Monday at 2:05 am with output dump
 
 5 2 * * 1 /home/USER/bin/cya save >/dev/null 2>&1
 
-#### Why was /home/cya choosen?
+#### Why was /home/cya/ choosen?
 
 Please see the "[Contributors Readme](contributors.md)" for very detailed information on this subject.
 
