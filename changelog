@@ -1,3 +1,7 @@
+1.7 - 23 December 2017
+* Save command now marks which profile was last used
+* Bash auto completion
+
 1.6 - 16 November 2017
 * Updated disclaimer
 

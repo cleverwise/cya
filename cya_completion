@@ -1,0 +1,53 @@
+_cya()
+{
+    local cur prev opts
+    
+    cur=${COMP_WORDS[COMP_CWORD]}
+    prev="${COMP_WORDS[COMP_CWORD-1]}"
+
+    if [ -z ${CYA_COMMAND_MODE+x} ]; then
+        CYA_COMMAND_MODE=""
+    fi
+
+    if test "${prev}" == "cya" ; then
+        CYA_COMMAND_MODE=""
+    fi
+
+    # -----------------------------------------------------------------------------------------
+    if test "${CYA_COMMAND_MODE}" == "" ; then
+        case "${prev}" in
+            @(help|save|keep|restore|archive|configfile|directories|list|remove|script|updates|uses|version|software|credits))
+                CYA_COMMAND_MODE="${prev}" ;;
+            *)
+                CYA_COMMAND_MODE="" ;;
+        esac
+    fi
+    # -----------------------------------------------------------------------------------------
+
+    # =========================================================================================
+    # Start Testing Cases
+    # =========================================================================================
+
+    # -----------------------------------------------------------------------------------------
+    if test "${CYA_COMMAND_MODE}" == "keep" ; then
+
+        if test "$COMP_CWORD" == "2" ; then
+            COMPREPLY=( $(compgen -W "name" -- ${cur}) )
+            return 0
+        fi
+
+        if test "$COMP_CWORD" == "4" ; then
+            COMPREPLY=( $(compgen -W "overwrite archive" -- ${cur}) )
+            return 0
+        fi
+    fi
+    # -----------------------------------------------------------------------------------------
+
+    # -----------------------------------------------------------------------------------------
+    if test "${CYA_COMMAND_MODE}" == "" ; then
+        COMPREPLY=( $(compgen -W "help save keep restore archive configfile directories list remove script updates uses version software credits" -- $cur) )
+    fi
+    # -----------------------------------------------------------------------------------------
+}
+
+complete -F _cya cya
