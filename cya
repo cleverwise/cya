@@ -1,7 +1,7 @@
 #!/bin/bash
 
 : <<HEADER
-Cover Your Ass(ets) v1.7 on 23 December 2017
+Cover Your Ass(ets) v1.8 on 24 December 2017
 Copyright (c) 2017 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="1.7"
+VERSION="1.8"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
@@ -735,6 +735,9 @@ RUN_RSYNC() {
 LIST_BACKUPS() {
 	LIST_ITEM "Backup Name" "Date & Time"
 
+	# Get current LAST_RUN
+	LAST_RUN_CNT=`cat $LAST_RUN_FILE`
+
 	# Load directory list into array
 	DIRECTORIES=($(ls -1 $RESTORE_DIR))
 
@@ -751,8 +754,15 @@ LIST_BACKUPS() {
 				DATESTAMP='none'
 			fi
 
+			# Check for current save
+			LAST_RUN_MATCH=""
+			if test "$LAST_RUN_CNT" == "${DIRECTORY}"
+			then
+				LAST_RUN_MATCH="  <-- LAST RUN"
+			fi
+
 			# Display list
-			LIST_ITEM "${DIRECTORY}" "$DATESTAMP"
+			LIST_ITEM "${DIRECTORY}$LAST_RUN_MATCH" "$DATESTAMP"
 		fi
 	done
 }
