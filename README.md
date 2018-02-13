@@ -119,6 +119,7 @@ To specify additional backups simply add more entries with one per line.  **Do r
 Examples:
 
 MYDATA_johnwd="/home/john/ /mnt/wd-password/john/"
+
 MYDATA_johnnas="/home/john/ /nas/john/"
 MYDATA_maryfiles="/home/mary/ /mnt/wd-password/mary/"
 
