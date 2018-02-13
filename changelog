@@ -1,3 +1,6 @@
+2.2 - 13 February 2018
+* Fixed core backup files bug
+
 2.0 - 13 February 2018
 * New numbering system (odd's development, even's production)
 * Excluded directories now removed from backups
