@@ -1,3 +1,11 @@
+2.0 - 13 February 2018
+* New numbering system (odd's development, even's production)
+* Excluded directories now removed from backups
+* User (custom) data backup support via MYDATA_ => cya mydata
+* Now backups and restores /initrd.img, /initrd.img.old, /vmlinuz, /vmlinuz.old (if present)
+* Version check reminder added
+* cya_completion updated to v1.2
+
 1.8 - 24 December 2017
 * Mark last run notation fixed
 

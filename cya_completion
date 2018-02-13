@@ -1,4 +1,4 @@
-# Version 1.0 - 23 December 2017
+# Version 1.2 - 13 February 2018
 
 _cya()
 {
@@ -18,7 +18,7 @@ _cya()
     # -----------------------------------------------------------------------------------------
     if test "${CYA_COMMAND_MODE}" == "" ; then
         case "${prev}" in
-            @(help|save|keep|restore|archive|configfile|directories|list|remove|script|updates|uses|version|software|credits))
+            @(help|save|keep|restore|archive|configfile|directories|list|remove|script|updates|uses|version|software|credits|mydata))
                 CYA_COMMAND_MODE="${prev}" ;;
             *)
                 CYA_COMMAND_MODE="" ;;
@@ -47,7 +47,7 @@ _cya()
 
     # -----------------------------------------------------------------------------------------
     if test "${CYA_COMMAND_MODE}" == "" ; then
-        COMPREPLY=( $(compgen -W "help save keep restore archive configfile directories list remove script updates uses version software credits" -- $cur) )
+        COMPREPLY=( $(compgen -W "help save keep restore archive configfile directories list remove script updates uses version software credits mydata" -- $cur) )
     fi
     # -----------------------------------------------------------------------------------------
 }

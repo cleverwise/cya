@@ -1,7 +1,7 @@
 #!/bin/bash
 
 : <<HEADER
-Cover Your Ass(ets) v1.8 on 24 December 2017
+Cover Your Ass(ets) v2.0 on 13 February 2018
 Copyright (c) 2017 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="1.8"
+VERSION="2.0"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
@@ -34,8 +34,11 @@ action=$1
 # Core backup directories
 BACKUP_DIRECTORIES=(/bin/ /boot/ /etc/ /var/ /lib/ /lib32/ /lib64/ /opt/ /root/ /sbin/ /snap/ /usr/)
 
+# Core backup files
+CORE_BACKUP_FILES=(/initrd.img /initrd.img.old /vmlinuz /vmlinuz.old)
+
 ####################################################################
-# Load configuration file and set database
+# Load configuration file
 ####################################################################
 
 # Recover Mode
@@ -94,6 +97,9 @@ LAST_RUN_FILE="$HOME_DIR/LAST_RUN"
 # Backup files restore directory
 CYA_BACKUP_FILES_DIR="cya-backup-files"
 
+# Version timestamp file
+VERSION_TS_FILE="$HOME_DIR/versionts"
+
 # Declare CONFIG_ARRAY
 declare -A CONFIG_ARRAY
 
@@ -148,7 +154,7 @@ fi
 ######################################################################
 # Header
 ######################################################################
-echo "☀ $TITLE v$VERSION ☀"$'\n'
+echo "☀ $TITLE v$VERSION ☀ "$'\n'
 
 ######################################################################
 # Functions
@@ -157,7 +163,7 @@ echo "☀ $TITLE v$VERSION ☀"$'\n'
 # Footer
 ######################################################################
 DISPLAY_FOOTER() {
-	echo $'\n'$'\n'$"‣ Disclaimer: CYA offers zero guarantees as improper usage can cause undesired results"
+	echo $'\n'$'\n'"‣ Disclaimer: CYA offers zero guarantees as improper usage can cause undesired results"
 	echo "‣ Notice: Proper usage can correct unauthorized changes to system from attacks"$'\n'
 }
 
@@ -273,7 +279,7 @@ FAILED_BANNER() {
 # Menu Header display
 ######################################################################
 MENU_HEADER() {
-	echo $'\n'$"$1:"$'\n'$"------------------------------------------------------------"
+	echo $'\n'"$1:"$'\n'"------------------------------------------------------------"
 }
 
 # Menu Item display
@@ -419,9 +425,37 @@ RSYNC_BACKUP_GO() {
 					fi
 				done
 			fi
+
+			# Set delete tag
+			RSYNC_DELETE="--delete"
+			if [ -n "$EXCLUDE_DIRS" ]
+			then
+				RSYNC_DELETE="--delete-excluded"
+			fi
+
 			# Run directory backup
 			echo -n "Backing up ${BACKUP_DIRECTORY} ... "
-			SUDO_RUN "rsync -a --delete $EXCLUDE_DIRS$BASE_DIR${BACKUP_DIRECTORY} $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
+			SUDO_RUN "rsync -a --delete-excluded $EXCLUDE_DIRS$BASE_DIR${BACKUP_DIRECTORY} $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
+			echo " complete"
+			BACKUP_STATE="on"
+		fi
+	done
+
+	# Process Core Backup Files
+	for CORE_BACKUP_FILE in "${CORE_BACKUP_FILES[@]}"
+	do
+		BACKUP_FILE="n"
+		# Check file exists
+		if [ -f "$BASE_DIR${CORE_BACKUP_FILE}" ]
+		then
+			BACKUP_FILE="y"
+		fi
+
+		if test "$BACKUP_FILE" == "y"
+		then
+			# Run file backup
+			echo -n "Backing up ${CORE_BACKUP_FILE} ... "
+			SUDO_RUN "rsync -a $BASE_DIR${CORE_BACKUP_FILE} $RESTORE_DIR/$BACKUP_NAME${CORE_BACKUP_FILE}"
 			echo " complete"
 			BACKUP_STATE="on"
 		fi
@@ -626,6 +660,34 @@ RUN_RSYNC() {
 							echo "$CYA_LOG"
 							CYA_LOG_INSERT "Restoring ${BACKUP_DIRECTORY} ... complete"
 
+							# If directory is boot restore core_backup_files
+							if test "${BACKUP_DIRECTORY}" == "/boot/"
+							then
+								# Process Core Backup Files
+								for CORE_BACKUP_FILE in "${CORE_BACKUP_FILES[@]}"
+								do
+									BACKUP_FILE="n"
+									# Check file exists
+									if [ -f "$RESTORE_DIR/$BACKUP_NAME${CORE_BACKUP_FILE}" ]
+									then
+										BACKUP_FILE="y"
+									fi
+
+									if test "$BACKUP_FILE" == "y"
+									then
+										# Run restore file
+										CYA_LOG="Restoring ${CORE_BACKUP_FILE} ... "
+										echo -n "$CYA_LOG"
+
+										# Run file rsync
+										SUDO_RUN "rsync -a $RESTORE_DIR/$BACKUP_NAME${CORE_BACKUP_FILE} $BASE_DIR"
+
+										echo " complete"
+										CYA_LOG_INSERT "Restoring ${CORE_BACKUP_FILE} ... complete"
+									fi
+								done
+							fi
+
 							# Set status
 							RESTORE_STATUS="y"
 						fi
@@ -690,7 +752,7 @@ RUN_RSYNC() {
 				if test $RESTORE_STATUS == "y"
 				then
 					echo "$base_dir/cya_log has been written"
-					echo $'\n'$"🟂 Now restart your machine to load your environment with the restored files! 🟂"
+					echo $'\n'"🟂 Now restart your machine to load your environment with the restored files! 🟂"
 				fi
 			else
 				FAILED_BANNER "Backup directory doesn't exist!"
@@ -767,6 +829,59 @@ LIST_BACKUPS() {
 	done
 }
 
+# Display Version Reminder
+######################################################################
+VERSION_CHECK() {
+	# Get current timestamp
+	curts=`date +%s`
+
+	# Calculate 60 days ago in unixtime
+	olduts=$(($curts-5184000))
+
+	# Write version timestamp file, if missing
+	if [ -f "$VERSION_TS_FILE" ]
+	then
+		fileuts=`cat $VERSION_TS_FILE`
+	else
+		BASH_RUN=`echo "$curts" | sudo tee $VERSION_TS_FILE`
+		fileuts="$curts"
+	fi
+
+	# Set fileuts to zero if blank
+	if [ -z "$fileuts" ]
+	then
+		fileuts="0"
+	fi
+
+	# Compare filets with olduts and display message if necessary
+	if (($olduts > $fileuts))
+	then
+		echo "Your version could be out of date!  You haven't checked in 60 days."
+		echo -n "Would you like to check for a new version? [Yn] "
+		read CHKVERSION
+
+		# Update version reminder timestamp file
+		BASH_RUN=`echo "$curts" | sudo tee $VERSION_TS_FILE`
+		echo $'\n'"-> Version reminder check updated to remind in 60 days"
+
+		if test "$CHKVERSION" == "n"
+		then
+			echo "Skipping version check, but highly recommended!"
+		else
+			echo "Starting version check..."
+			action="version"
+		fi
+	fi
+}
+
+######################################################################
+# Version Reminder Check
+######################################################################
+if test "$RECOVER_MODE" == "off"
+then
+	VERSION_CHECK
+fi
+
 ######################################################################
 # Actions
 ######################################################################
@@ -806,7 +921,7 @@ then
 	# Process answer
 	if test $CONTINUE_STATUS == "y"
 	then
-		echo -n $'\n'$"First pick the name of a backup to restore. Press any key to continue... "
+		echo -n $'\n'"First pick the name of a backup to restore. Press any key to continue... "
 		read CONTINUE_STATUSB
 
 		# Choose the backup to use for restoring
@@ -834,7 +949,8 @@ then
 			echo "Aborting... no valid backup name provided"
 		else
 			# Backup current state
-			echo $'\n'$"Do you want to take a backup of current state before restoring? [y/N]"
+			echo $'\n'"Do you want to take a backup of current state before restoring?"
+			echo $'\n'"Enter your choice: [y/N] "
 			read BACKUP_BEFORE
 			if [ -z $BACKUP_BEFORE ]
 			then
@@ -844,7 +960,9 @@ then
 			BACKUP_BEFORE="$clean_var"
 
 			# Delete files
-			echo $'\n'$"Should files that do NOT exist in backup be deleted from destination?  (Will remove unauthorized files) [y/N]"
+			echo $'\n'"Should files that do NOT exist in backup be deleted from destination?"
+			echo $'\n'"This will remove unauthorized files in restored directories.  However excluded directories and their files will not be removed, even if you chose yes."
+			echo $'\n'"Enter your choice: [y/N] "
 			read DELETE_FILES
 			if [ -z $DELETE_FILES ]
 			then
@@ -854,7 +972,8 @@ then
 			DELETE_FILES="$clean_var"
 
 			# Verify each directory
-			echo $'\n'$"Do you want to be asked whether to restore each directory individually? [y/N]"
+			echo $'\n'"Do you want to be asked whether to restore each directory individually?"
+			echo $'\n'"Enter your choice: [y/N] "
 			read PROMPT_EACH
 			if [ -z $PROMPT_EACH ]
 			then
@@ -862,7 +981,7 @@ then
 			fi
 
 			# Verify restore actions
-			echo $'\n'$"======================================================================"
+			echo $'\n'"======================================================================"
 			echo "FILE CHANGES ABOUT TO OCCUR! VERIFY AND CONFIRM:"
 			echo "======================================================================"$'\n'
 			echo "Restoring Backup Profile: $E_BACKUP_NAME"
@@ -891,7 +1010,7 @@ then
 				PROMPT_EACH="n"
 			fi
 			# Verify restore action with user
-			echo -n $'\n'$"✱ DATA CHANGES IMMINENT✱"$'\n'$"To start process type the word restore in all lower case, otherwise hit any other key to abort ... "
+			echo -n $'\n'"✱ DATA CHANGES IMMINENT✱"$'\n'"To start process type the word restore in all lower case, otherwise hit any other key to abort ... "
 			read BACKUP_ACTION
 			if [ -z $BACKUP_ACTION ]
 			then
@@ -900,7 +1019,7 @@ then
 
 			if test $BACKUP_ACTION == "restore"
 			then
-				echo $'\n'$"Begin Restore..."
+				echo $'\n'"Begin Restore..."
 				RUN_RSYNC restore $E_BACKUP_NAME $BACKUP_BEFORE $DELETE_FILES $PROMPT_EACH
 			else
 				echo "🗷 Aborting... nothing has been changed! Goodbye"
@@ -988,7 +1107,7 @@ then
 				FAILED_BANNER "Name already in use!"
 
 				# Check if overwrite desired
-				echo -n $'\n'$"Type overwrite in lower case to use $E_BACKUP_NAME, which WILL alter data, or hit any key to pick another backup ... "
+				echo -n $'\n'"Type overwrite in lower case to use $E_BACKUP_NAME, which WILL alter data, or hit any key to pick another backup ... "
 				read OVERWRITE
 				if [ -n $OVERWRITE ]
 				then
@@ -1037,8 +1156,8 @@ then
 	then
 		echo "Aborting... no valid backup name provided"
 	else
-		echo $'\n'$"$E_BACKUP_NAME is about to be archived!"$'\n'$'\n'$"This will:"
-		echo "- tar and gzip the files"$'\n'$"- move file to $ARCHIVES_DIR"$'\n'$"- remove $E_BACKUP_NAME from list"$'\n'$"- require manual untarring before using restore command on profile"$'\n'
+		echo $'\n'"$E_BACKUP_NAME is about to be archived!"$'\n'$'\n'"This will:"
+		echo "- tar and gzip the files"$'\n'"- move file to $ARCHIVES_DIR"$'\n'"- remove $E_BACKUP_NAME from list"$'\n'"- require manual untarring before using restore command on profile"$'\n'
 		echo -n "Do you want process? [y/N]: "
 		read PROCESS
 		if test "$PROCESS" == "y"
@@ -1086,7 +1205,7 @@ then
 
 	LIST_BACKUPS
 
-	echo -n $'\n'$'\n'$"Enter name of backup to remove: "
+	echo -n $'\n'$'\n'"Enter name of backup to remove: "
 	read BACKUP_NAME
 
 	if [ -d "$RESTORE_DIR/$BACKUP_NAME" ]
@@ -1119,7 +1238,7 @@ if test "$action" == "directories"
 then
 	ACTION_BANNER "Directories & Files Backing Up"
 
-	echo "Directories:"$'\n'$"---------------------------------------------"
+	echo "Directories:"$'\n'"---------------------------------------------"
 
 	# Check directories
 	for BACKUP_DIRECTORY in "${BACKUP_DIRECTORIES[@]}"
@@ -1133,7 +1252,7 @@ then
 		fi		
 	done
 
-	echo $'\n'$"Files:"$'\n'$"---------------------------------------------"
+	echo $'\n'"Files:"$'\n'"---------------------------------------------"
 
 	# Check files
 	for BACKUP_FILE in "${BACKUP_FILES[@]}"
@@ -1219,6 +1338,33 @@ MAX_SAVES=\"6\"
 Note: If you reduce the number higher profiles will NOT be removed.  So if you go from ten (10) to five (5) cya will start rotating at five (5) but backups six to ten will remain unless you remove them.
 
 ------------------------------------------------------------
+• Backup user data
+
+You simply type MYDATA underscore then pick an unique profile name and between quotes enter the source directory space destination directory.  It should be noted both directories should end with a trailing slash.
+
+Example:
+
+Let's say we want to backup /home/john/ to /mnt/wd-passport/john/ with a profile name of johnfiles
+
+MYDATA_johnfiles=\"/home/john/ /mnt/wd-password/john/\"
+
+Now to actually backup /home/john/ you need to enter johnfiles (the profile name, which is case sensitive) with the cya mydata command:
+
+shell> cya mydata johnfiles
+
+This will cause CYA to backup the /home/john/ directory.  If you run the command again CYA will update the destination directory.  So you simply issue the same command when a backup update is desired.
+
+You may also use the same source directory for multiple backup destinations.  This is useful if you want to backup a directory to multiple drives.  Also you may backup to any directory (drive) that is mounted so internal drives, external USB (hdd, ssd, flash), NAS, cloud, etc are all acceptable.  If desired you may even crontab, anacron, or systemd backup(s) to always connected destinations.
+
+To specify additional backups simply add more entries with one per line.  Do remember to use unique profile names!
+
+Examples:
+
+MYDATA_johnwd=\"/home/john/ /mnt/wd-password/john/\"
+MYDATA_johnnas=\"/home/john/ /nas/john/\"
+MYDATA_maryfiles=\"/home/mary/ /mnt/wd-password/mary/\"
+
+------------------------------------------------------------
 • Turn off disclaimer notice:
 
 All you need to do is set the variable DISCLAIMER to off
@@ -1253,17 +1399,17 @@ then
 		MSG="🗷 ERROR: UNABLE TO CONNECT TO GITHUB VERSION CHECK!!!"
 		GH_VERSION="Unknown - can NOT connect to GitHub"
 	else
-		if test $GH_VERSION == $VERSION
+		if (( $(echo "$GH_VERSION > $VERSION" | bc -l) ))
 		then
-			MSG="🗹 LATEST VERSION!"
-		else
 			MSG="🗷 UPGRADE REQUIRED! VERSIONS DO NOT MATCH!"
+		else
+			MSG="🗹 LATEST VERSION!"
 		fi
 	fi
 	echo "$MSG"$'\n'
 	echo "Github Version: $GH_VERSION"
 	echo "Installed Version: $VERSION"
-	echo $'\n'$"Github: https://github.com/cleverwise/cya"
+	echo $'\n'"Github: https://github.com/cleverwise/cya"
 fi
 
 # Help
@@ -1354,6 +1500,78 @@ echo "This script has many uses including:
 * Foil Intruders - erase unauthorized system files and changes"
 fi
 
+# Backup User Data - In Development
+######################################################################
+if test "$action" == "mydata"
+then
+	ACTION_BANNER "Backing Up Your User Data"
+
+	# Load backup profile name from command line
+	BACKUP_NAME="$2"
+
+	# Verify a backup profile name was entered
+	if [ -n "$BACKUP_NAME" ]
+	then
+		# Process backup
+		BACKUP_NAME="MYDATA_${BACKUP_NAME}"
+		BACKUP_DATA=${CONFIG_ARRAY[$BACKUP_NAME]}
+
+		# If backup profile exists get directories
+		if [[ $BACKUP_DATA ]]
+		then
+			# Split data
+			IFS=' ' read -a BACKUP_DIRS <<< "$BACKUP_DATA"
+
+			# Backup status
+			BACKUP_STATUS="on"
+
+			# Verify source directory
+			SOURCE_DIR="${BACKUP_DIRS[0]}"
+			if [ -n "$SOURCE_DIR" ]
+			then
+				if [ ! -d "$SOURCE_DIR" ]
+				then
+					BACKUP_STATUS="off"
+					ERROR_BANNER "Source for backup $SOURCE_DIR does NOT exist!"
+				fi
+			else
+				BACKUP_STATUS="off"
+				ERROR_BANNER "Source for backup does NOT exist!"
+			fi
+
+			# Verify destination directory
+			DESTINATION_DIR="${BACKUP_DIRS[1]}"
+			if [ -n "$DESTINATION_DIR" ]
+			then
+				if [ ! -d "$DESTINATION_DIR" ]
+				then
+					BACKUP_STATUS="off"
+					ERROR_BANNER "Destination for backup $DESTINATION_DIR does NOT exist!"
+				fi
+			else
+				BACKUP_STATUS="off"
+				ERROR_BANNER "Destination for backup does NOT exist!"
+			fi
+
+			# Run backup
+			if test $BACKUP_STATUS == "on"
+			then
+				SUDO_CHECK
+				echo $'\n'"-> Please be patient as backup may take a long time <-"$'\n'
+				echo -n "Backing up $SOURCE_DIR to $DESTINATION_DIR ... "
+				SUDO_RUN "rsync -as --delete $SOURCE_DIR $DESTINATION_DIR"
+				echo "Complete!"
+			else
+				ERROR_BANNER "Backup failed due to invalid path(s)"
+			fi
+		else
+			ERROR_BANNER "No such backup profile"
+		fi
+	else
+		ERROR_BANNER "No such backup profile"
+	fi
+fi
+
 # Credits
 ######################################################################
 if test "$action" == "credits"
@@ -1365,7 +1583,7 @@ then
 	echo "Testing and collaboration: Joe Collins"
 	echo "🗁  EzeeLinux -> www.EzeeLinux.com"$'\n'
 	echo "Additional collaborators and testers:"
-	echo "* David Sanroma (BASH auto completion & last save notation)"
+	echo "* David Sanroma (BASH auto completion, last save notation, delete excluded)"
 	echo "* Tom D. (disclaimer modification)"
 fi
 
@@ -1390,6 +1608,7 @@ then
 	MENU_HEADER "Backing Up"
 	MENU_ITEM "save" " " "Standard rotating backups"
 	MENU_ITEM "keep" " " "Manual backups - NEVER DELETED"
+	MENU_ITEM "mydata" "" "Backup user (personal) data"
 
 	MENU_HEADER "Restoring"
 	MENU_ITEM "restore" " " "Restore the system"
@@ -1418,7 +1637,7 @@ then
 
 	SCRIPT_NAME="${0##*/}"
 
-	echo "Please enter a valid command.  To list commands enter:"$'\n'$'\n'$"$SCRIPT_NAME help"
+	echo "Please enter a valid command.  To list commands enter:"$'\n'$'\n'"$SCRIPT_NAME help"
 
 	LIST_BACKUPS
 fi

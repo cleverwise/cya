@@ -12,7 +12,7 @@ There are many other features such as the system will keep three separate copies
 
 CYA even supports mixing all three methods at the same time: rotating, manual, and archiving.  However best of all these processes may be automated with crontab, anacron, systemd, etc.  It is even super easy to call CYA from other scripts and processes!
 
-**As stated above this utility does NOT touch data outside of configured directories.  Therefore your personal data is safe!**
+**Version 2.0 and above is now able to backup user data via the mydata command!**
 
 More information: [https://www.cyberws.com/bash/cya/](https://www.cyberws.com/bash/cya/)
 
@@ -93,6 +93,34 @@ Note the overwrite flag, which tells cya it is okay to overwrite files in backup
 shell> **cya keep name BACKUP_NAME archive**
 
 This command *IS script safe* as a unix timestamp will be added to make unique filenames.  Also note this option will remove the backup profile directory and backup will *NOT* appear in the back up list.
+
+### Backing User Data
+
+Version 2.0 introduced the ability to backup user data along with system files.  This is done using the mydata command and uses profiles set in the **cya.conf** file.
+
+You set MYDATA underscore profile name (case sensitive and unique) then between quotes the source directory (what to backup) space then destination directory (where to backup).  **Both source and destination directories should end with a trailing slash.**
+
+Example:
+
+Let's say we want to backup /home/john/ to /mnt/wd-passport/john/ with a profile name of johnfiles
+
+MYDATA_johnfiles="/home/john/ /mnt/wd-password/john/"
+
+Now to actually backup /home/john/ you need to enter johnfiles (the profile name, which is case sensitive) with the cya mydata command:
+
+shell> cya mydata johnfiles
+
+This will cause CYA to backup the /home/john/ directory.  If you run the command again CYA will update the destination directory.  So you simply issue the same command when a backup update is desired.
+
+You may also use the same source directory for multiple backup destinations.  This is useful if you want to backup a directory to multiple drives.  Also you may backup to any directory (drive) that is mounted so internal drives, external USB (hdd, ssd, flash), NAS, cloud, etc are all acceptable.  If desired you may even crontab, anacron, or systemd backup(s) to always connected destinations.
+
+To specify additional backups simply add more entries with one per line.  **Do remember to use unique profile names!**
+
+Examples:
+
+MYDATA_johnwd="/home/john/ /mnt/wd-password/john/"
+MYDATA_johnnas="/home/john/ /nas/john/"
+MYDATA_maryfiles="/home/mary/ /mnt/wd-password/mary/"
 
 ###	Recovery
 
