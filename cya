@@ -1553,13 +1553,32 @@ then
 				ERROR_BANNER "Destination for backup does NOT exist!"
 			fi
 
+			# Process excludes
+			EXCLUDE_NAME="EXCLUDE_${SOURCE_DIR}"
+			EXCLUDE_DIR=${CONFIG_ARRAY[$EXCLUDE_NAME]}
+			EXCLUDE_DIRS=""
+			if [[ $EXCLUDE_DIR ]]
+			then
+				# Split data
+				IFS=' ' read -a EXCLUDE_DATA <<< "$EXCLUDE_DIR"
+				# Loop to build exclude directories
+				for EXCLUDE_ENTRY in "${EXCLUDE_DATA[@]}"
+				do
+					# Verify directory before adding
+					if [ -d "${SOURCE_DIR}${EXCLUDE_ENTRY[0]}" ]
+					then
+						EXCLUDE_DIRS+="--exclude=${EXCLUDE_ENTRY[0]} "
+					fi
+				done
+			fi
+
 			# Run backup
 			if test $BACKUP_STATUS == "on"
 			then
 				SUDO_CHECK
 				echo $'\n'"-> Please be patient as backup may take a long time <-"$'\n'
 				echo -n "Backing up $SOURCE_DIR to $DESTINATION_DIR ... "
-				SUDO_RUN "rsync -as --delete $SOURCE_DIR $DESTINATION_DIR"
+				SUDO_RUN "rsync -as $EXCLUDE_DIRS --delete $SOURCE_DIR $DESTINATION_DIR"
 				echo "Complete!"
 			else
 				ERROR_BANNER "Backup failed due to invalid path(s)"
