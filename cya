@@ -1608,7 +1608,7 @@ then
 	echo "Additional collaborators and testers:"
 	echo "* David Sanroma (BASH auto completion, last save notation, delete excluded)"
 	echo "* Tom D. (disclaimer modification)"
-        echo "* Jon \"The Nice Guy\" Spriggs (exclusions from MYDATA paths)"
+	echo "* Jon \"The Nice Guy\" Spriggs (exclusions from MYDATA paths)"
 fi
 
 # Software
