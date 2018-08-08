@@ -1364,6 +1364,10 @@ MYDATA_johnwd=\"/home/john/ /mnt/wd-password/john/\"
 MYDATA_johnnas=\"/home/john/ /nas/john/\"
 MYDATA_maryfiles=\"/home/mary/ /mnt/wd-password/mary/\"
 
+You can exclude paths from these MYDATA paths using this format:
+
+EXCLUDE_/home/john/=\".config/openstack/ Downloads/\"
+
 ------------------------------------------------------------
 • Turn off disclaimer notice:
 
