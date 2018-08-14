@@ -130,6 +130,10 @@ You can exclude paths from these MYDATA paths using this format:
 
 EXCLUDE_/home/john/=".config/openstack/ Downloads/"
 
+You can exclude paths from these MYDATA paths using this format:
+
+EXCLUDE_/home/john/=".config/openstack/ Downloads/"
+
 ###	Recovery
 
 If you find your system in a situation where things aren't right then it is time to restore it.  Now should you have a known single file issue it would be faster to restore that single file, however you will need to watch out for ownership and permissions.  Thus the cp command may or may not be enough depending on the situation.
