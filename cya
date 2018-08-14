@@ -1,8 +1,8 @@
 #!/bin/bash
 
 : <<HEADER
-Cover Your Ass(ets) v2.2 on 13 February 2018
-Copyright (c) 2017 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
+Cover Your Ass(ets) v2.4 on 14 August 2018
+Copyright (c) 2018 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 
@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="2.2"
+VERSION="2.4"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
@@ -1364,6 +1364,10 @@ MYDATA_johnwd=\"/home/john/ /mnt/wd-password/john/\"
 MYDATA_johnnas=\"/home/john/ /nas/john/\"
 MYDATA_maryfiles=\"/home/mary/ /mnt/wd-password/mary/\"
 
+You can exclude paths from these MYDATA paths using this format:
+
+EXCLUDE_/home/john/=\".config/openstack/ Downloads/\"
+
 ------------------------------------------------------------
 • Turn off disclaimer notice:
 
@@ -1553,13 +1557,32 @@ then
 				ERROR_BANNER "Destination for backup does NOT exist!"
 			fi
 
+			# Process excludes
+			EXCLUDE_NAME="EXCLUDE_${SOURCE_DIR}"
+			EXCLUDE_DIR=${CONFIG_ARRAY[$EXCLUDE_NAME]}
+			EXCLUDE_DIRS=""
+			if [[ $EXCLUDE_DIR ]]
+			then
+				# Split data
+				IFS=' ' read -a EXCLUDE_DATA <<< "$EXCLUDE_DIR"
+				# Loop to build exclude directories
+				for EXCLUDE_ENTRY in "${EXCLUDE_DATA[@]}"
+				do
+					# Verify directory before adding
+					if [ -d "${SOURCE_DIR}${EXCLUDE_ENTRY[0]}" ]
+					then
+						EXCLUDE_DIRS+="--exclude=${EXCLUDE_ENTRY[0]} "
+					fi
+				done
+			fi
+
 			# Run backup
 			if test $BACKUP_STATUS == "on"
 			then
 				SUDO_CHECK
 				echo $'\n'"-> Please be patient as backup may take a long time <-"$'\n'
 				echo -n "Backing up $SOURCE_DIR to $DESTINATION_DIR ... "
-				SUDO_RUN "rsync -as --delete $SOURCE_DIR $DESTINATION_DIR"
+				SUDO_RUN "rsync -as $EXCLUDE_DIRS --delete $SOURCE_DIR $DESTINATION_DIR"
 				echo "Complete!"
 			else
 				ERROR_BANNER "Backup failed due to invalid path(s)"
@@ -1585,6 +1608,7 @@ then
 	echo "Additional collaborators and testers:"
 	echo "* David Sanroma (BASH auto completion, last save notation, delete excluded)"
 	echo "* Tom D. (disclaimer modification)"
+	echo "* Jon \"The Nice Guy\" Spriggs (exclusions from MYDATA paths)"
 fi
 
 # Software

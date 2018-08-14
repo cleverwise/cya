@@ -1,6 +1,6 @@
 # CYA .:. Cover Your Ass(ets)
 
-This open source and freely available tool is written to run in the BASH shell and allows for easy snapshots and rollbacks of your Linux (any flavor) or other *nix operating system.  It is filesystem agnostic (EXT2/3/4, XFS, UFS, GPFS, reiserFS, JFS, BtrFS, ZFS), easy to remove, and is portable.  Plus, obviously, you are free to verify all the code.  This system only backups and restores the operating system itself and not your actual user data.  **This is a system restore utility.**
+This open source and freely available tool is written to run in the BASH shell and allows for easy snapshots and rollbacks of your Linux (any flavor) or other *nix operating system.  It is filesystem agnostic (EXT2/3/4, XFS, UFS, GPFS, reiserFS, JFS, BtrFS, ZFS), easy to remove, and is portable.  Plus, obviously, you are free to verify all the code.  The core system backups and restores the operating system itself and not your actual user data.  **However user data backup is now supported!**
 
 The underlying backup method is actually rsync -  a well known and vetted system.  However CYA makes it super simple to create rolling backups.  This is because with a **single command** it will copy all key directories like /bin/ /lib/ /usr/ /var/ and several others.  You are even free to add your own unique directories and files into the configuration so CYA will pick those up as well.  It is also possible to configure the system to skip subdirectories so if you don't want /var/logs/ backed up with the /var/ directory no problem.
 
@@ -62,7 +62,7 @@ What? You want to remove CYA? Why!? :-(
 3) Finally delete the directory **/home/cya/**
 4) Done.  Now reinstall it right? ;-)
 
-Note: If you performed a restore using cya then in your root file system you'll find **CYA_LOG** file which contains date and time along with directories restored.
+Note: If you performed a restore using cya then in your root file system you'll find **CYA_LOG** file which contains date and time along with directories restored.  Also don't forget the BASH auto complete file if you installed it.
 
 ###	Generating Snapshots/Backups
 
@@ -72,7 +72,9 @@ There are multiple methods that may be issued from the commandline or called fro
 
 shell> **cya save**
 
-2A) To provide a custom name for a backup that will **NOT** be overwritten: 
+2) For custom profile names you three methods/commands:
+
+A) To provide a custom name for a backup that will **NOT** be overwritten: 
 
 shell> **cya keep**
 
@@ -80,19 +82,19 @@ Script friendly version:
 
 shell> **cya keep name BACKUP_NAME**
 
-The BACKUP_NAME must be unique each time you run the script (see #3).  So using this method in a script attach a time stamp or random string.
+If you use this method the BACKUP_NAME must be unique each time you run the script.  So using this method in a script attach a time stamp or random string.
 
-2B) To provide a custom name for a backup that **WILL** overwrite:
+B) To provide a custom name for a backup that **WILL** overwrite:
 
 shell> **cya keep name BACKUP_NAME overwrite**
 
-Note the overwrite flag, which tells cya it is okay to overwrite files in backup profile.
+Note the overwrite flag, which tells cya it is okay to overwrite files in the backup profile.  This method *IS script safe* as it will overwrite data.
 
-2C) To backup and archive which will tar and gzip then move file to **/home/cya/archives** directory use the archive tag
+C) To backup and archive which will tar and gzip then move file to **/home/cya/archives** directory use the archive tag
 
 shell> **cya keep name BACKUP_NAME archive**
 
-This command *IS script safe* as a unix timestamp will be added to make unique filenames.  Also note this option will remove the backup profile directory and backup will *NOT* appear in the back up list.
+This method *IS script safe* as a unix timestamp will be added to make unique filenames.  Also note this option will remove the backup profile directory and backup will *NOT* appear in the back up list.
 
 ### Backing User Data
 
@@ -104,7 +106,7 @@ Example:
 
 Let's say we want to backup /home/john/ to /mnt/wd-passport/john/ with a profile name of johnfiles
 
-MYDATA_johnfiles="/home/john/ /mnt/wd-password/john/"
+MYDATA_johnfiles="/home/john/ /mnt/wd-passport/john/"
 
 Now to actually backup /home/john/ you need to enter johnfiles (the profile name, which is case sensitive) with the cya mydata command:
 
@@ -118,11 +120,15 @@ To specify additional backups simply add more entries with one per line.  **Do r
 
 Examples:
 
-MYDATA_johnwd="/home/john/ /mnt/wd-password/john/"
+MYDATA_johnwd="/home/john/ /mnt/wd-passport/john/"
 
 MYDATA_johnnas="/home/john/ /nas/john/"
 
-MYDATA_maryfiles="/home/mary/ /mnt/wd-password/mary/"
+MYDATA_maryfiles="/home/mary/ /mnt/wd-passport/mary/"
+
+You can exclude paths from these MYDATA paths using this format:
+
+EXCLUDE_/home/john/=".config/openstack/ Downloads/"
 
 ###	Recovery
 
@@ -143,7 +149,7 @@ You may do this totally manually or if on Linux use the **recovery.sh** file ass
 ##### Setting Up Restore Environment Manually
 
 1) Boot off a live image on disc, USB, or network.
-2) At the command prompt create a directory to be used to mount your drive(s).  For example /mnt/cya  
+2) At the command prompt create the **/mnt/cya** directory to be used to mount your drive(s). 
 shell> **sudo mkdir -p /mnt/cya**
 3) Now you need to mount your / and /home (if on another partition) into the /mnt/cya point.  Below are **ONLY** examples:
 shell> sudo mount /dev/sda1 /mnt/cya  
@@ -153,7 +159,7 @@ shell> **sudo /mnt/cya/home/cya/cya restore**
 
 ###	BASH Autocomplete
 
-This project includes a BASH autocomplete script.  This means once installed hitting tab after typing in the cya command will show available options and even completes them.
+This project includes a BASH autocomplete script.  Once installed this means hitting tab after typing in the cya command will show available options and even completes them.
 
 For example type in the following omitting enter then hit tab a few times:
 
@@ -200,34 +206,41 @@ shell> **source ~/.bashrc**
 1) Open the following file in your text editor /home/cya/cya.conf
 2) Add or edit the following variable
 
-BACKUP_DIRECTORIES=””
+BACKUP_DIRECTORIES=""
 
-Now between the quotes add the directories separated by a space.
+Now between the quotes add the directories separated by a space.  Note: If a directory contains a space use backslashblackslash or \\ before the space.
 
 Example:
 
-BACKUP_DIRECTORIES=”/tmp/ /important/ /myfiles/configuration/”
+BACKUP_DIRECTORIES="/tmp/ /important/ /myfiles/configuration/"
+
+or
+
+BACKUP_DIRECTORIES="/my\\ directory\\ with\\ spaces/\"
 
 3) Once completed save and close file.  You may verify by running the following command:
 
 shell> cya directories
 
-#### Exclude Subdirectories
+#### Exclude Subdirectories And/Or Files
 
 1) Open the following file in your text editor /home/cya/cya.conf
 2) Now simply type EXCLUDE (all uppercase) then underscore then parent directory with slashes and between quotes add children directories separated by a space. IMPORTANT: Subdirectories should NOT include the parent directory. NO FORWARD SLASHES FOR CHILDREN DIRECTORIES!
 
 Example:
 
-Let’s say we want to exclude /var/tmp/ and /var/logs/ which are inside /var/, obviously.
+Let's say we want to exclude /var/tmp/ and /var/logs/ and /var/log/syslog (a file) which are inside /var/, obviously
 
-EXCLUDE_/var/=”tmp/ logs/”  
+EXCLUDE_/var/="tmp/ logs/ log/syslog"  
 
-You simply repeat for additional directories with EXCLUDE_/dir/ one per line.
+You simply repeat for additional directories with EXCLUDE_/dir/ one per line. Note: If a directory contains a space use blashslash or \ before space in EXCLUDE and use backslashblackslash or \\ before the space when working between the quotes.
+
 Example:
 
-EXCLUDE_/etc/=”logs/ conf/”  
-EXCLUDE_/var/=”tmp/ logs/”  
+EXCLUDE_/etc/="logs/ conf/"  
+EXCLUDE_/var/="tmp/ logs/"
+EXCLUDE_/var/="my\\ directory\\ with\\ spaces/"
+EXCLUDE_/custom\ directory\ spaces/="logs/" 
 
 3) Once completed save and close file. 
 
@@ -244,7 +257,7 @@ Now between the quotes add the full path to files separated by a space.
 
 Example:
 
-BACKUP_FILES="/custom/my_log /custom/sudir/config /app2/config/settings" 
+BACKUP_FILES="/custom/my_log /custom/sudir/config /app2/config/settings"
 
 #### Alter number of rotation backups:
 
@@ -261,6 +274,23 @@ MAX_SAVES="6"
 
 Note: If you reduce the number higher profiles will NOT be removed.  So if you go from ten (10) to five (5) cya will start rotating at five (5) but backups six to ten will remain unless you remove them.
 
+#### Removing/Altering Default Top Level Backup Directories
+
+CYA is designed to backup core top level directories like /bin/, /boot/, /var/, etc.  You may get a list of these directories by running the directories command.
+
+shell> **cya directories**
+
+However you may desire to alter the default list.  This is easy to do using the **OVERRIDE_BACKUP_DIRECTORIES** variable in **cya.conf** located in the **/home/cya/** directory.  Now when using this variable it should be noted **ALL** default entries will be cleared.  Thus you need to build your own list.
+
+Example:
+
+1) Open the following file in your text editor /home/cya/cya.conf
+2) Add or edit the following variable:
+
+OVERRIDE_BACKUP_DIRECTORIES="/boot/ /etc/ /var/"
+
+It should be noted that when you use this variable you may specify custom backup directories here.  However using the **BACKUP_DIRECTORIES** variable still works.
+
 #### Disable Disclaimer
 
 1) Open the following file in your text editor /home/cya/cya.conf
@@ -270,7 +300,7 @@ DISCLAIMER="off"
 
 #### Changing Name Of A Backup Profile
 
-If you wish to rename a backup profile simply alter the name of the directory/folder in **/home/cya/points** to the desired name.  That's it.  However if you have scheduled tasks that call the backup profile then you'll need to edit your command call to the new name.
+If you wish to rename a backup profile simply alter the name of the directory/folder in **/home/cya/points/** to the desired name.  That's it.  However if you have scheduled tasks that call the backup profile then you'll need to edit your command call to the new name.
 
 ## Scheduling
 
