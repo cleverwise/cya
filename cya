@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="2.4"
+VERSION="2.6"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
@@ -119,6 +119,13 @@ then
 		CONFIG_DATA_VALUE="${CONFIG_DATA[1]//\"/}"
 		CONFIG_ARRAY[${CONFIG_DATA[0]}]="$CONFIG_DATA_VALUE"
 	done
+
+	# Override BACKUP DIRECTORIES
+	if [[ CONFIG_ARRAY[OVERRIDE_BACKUP_DIRECTORIES] ]]
+	then
+		IFS=' ' read -a DATA <<< "${CONFIG_ARRAY[OVERRIDE_BACKUP_DIRECTORIES]}"
+		BACKUP_DIRECTORIES=("${DATA[@]}")
+	fi
 
 	# Update BACKUP DIRECTORIES
 	if [[ CONFIG_ARRAY[BACKUP_DIRECTORIES] ]]
@@ -435,6 +442,7 @@ RSYNC_BACKUP_GO() {
 
 			# Run directory backup
 			echo -n "Backing up ${BACKUP_DIRECTORY} ... "
+			SUDO_RUN "mkdir -p $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
 			SUDO_RUN "rsync -a --delete-excluded $EXCLUDE_DIRS$BASE_DIR${BACKUP_DIRECTORY} $RESTORE_DIR/$BACKUP_NAME${BACKUP_DIRECTORY}"
 			echo " complete"
 			BACKUP_STATE="on"
