@@ -20,7 +20,7 @@ HEADER
 ######################################################################
 
 # Version number
-VERSION="2.4"
+VERSION="2.5"
 
 # Title variable
 TITLE="Cover Your Ass(ets)"
