@@ -1,3 +1,6 @@
+2.7 - 19 September 2018
+* Add feature to allow spaces in path
+
 2.6 -  17 September 2018
 * Add feature to allow subdirectories in BACKUP_DIRECTORIES option
 
