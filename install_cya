@@ -1,0 +1,166 @@
+#!/bin/bash
+
+: <<HEADER
+Cover Your Ass(ets) Installer - v1.0 on 22 August 2018
+Copyright (c) 2018 by Jeremy O'Connell - Cyberweb Solutions, LLC @ www.cyberws.com
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
+
+2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
+
+3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+HEADER
+
+# Bin directory for all users
+system_wide_dir="/usr/local/bin/"
+
+# Bin directory for local user
+user_wide_dir="/home/$USER/bin/"
+
+# Bash completion direcotry
+bash_completion_dir="/etc/bash_completion.d/"
+
+# Make sure sudo permissions are enabled, if not ask
+######################################################################
+SUDO_CHECK() {
+	# Make sure sudo is on
+	echo "Checking sudo permissions..."
+	SUDO_CHECK=`sudo ls`
+}
+
+# SUDO call
+######################################################################
+SUDO_RUN () {
+	if test "$2" == "sub"
+	then
+		bash_cli=`sudo bash -c "$1"`
+	else
+		bash_cli=`sudo $1`
+	fi
+}
+
+# Ask User
+######################################################################
+ASK_USER() {
+	ASK_USER_ANSWER="skip"
+	for (( ; ; ))
+	do
+		echo ""
+		echo -n "$USER_QUESTION Type yes or no: "
+		read USER_ANSWER
+		if [ "$USER_ANSWER" == "yes" ] || [ "$USER_ANSWER" == "no" ]
+		then
+			echo ""
+			break
+		else
+			echo "*** INVALID ANSWER!!! Please enter yes or no ***"
+		fi
+	done
+}
+
+######################################################################
+# Go
+######################################################################
+
+# Welcome Message
+echo $'\n'"Welcome to the Cover Your Ass(ets) Installer"
+
+# Installing CYA
+######################################################################
+echo "How should CYA be installed?"$'\n'
+echo "systemwide = Will install CYA into $system_wide_dir for all users to access"
+echo "myuser = Will install CYA into $user_wide_dir so only $USER can use it"$'\n'
+
+for (( ; ; ))
+do
+	echo "Which method? Type either systemwide or myuser or exit"
+	read USER_ANSWER
+	if [ "$USER_ANSWER" == "exit" ]
+	then
+		echo "Goodbye"
+		exit
+	fi
+	if [ "$USER_ANSWER" == "systemwide" ] || [ "$USER_ANSWER" == "myuser" ]
+	then
+		echo ""
+		break
+	fi
+done
+
+if test "$USER_ANSWER" == "systemwide"
+then
+	echo "Starting system wide installation..."
+	SUDO_CHECK
+
+	echo -n "Verifying $system_wide_dir exists... "
+	if [ -d "$system_wide_dir" ]
+	then
+		echo "yes"
+	else
+		echo "no"
+		echo -n "Creating $system_wide_dir ... "
+		SUDO_RUN "mkdir $system_wide_dir"
+		echo "done"
+	fi
+	echo -n "Install cya into $system_wide_dir ... "
+	SUDO_RUN "cp cya $system_wide_dir"
+	echo " done"
+else
+	echo "Starting $USER local install..."
+	echo -n "Verifying $user_wide_dir exists... "
+	if [ -d "$user_wide_dir" ]
+	then
+		echo "yes"
+	else
+		echo "no"
+		echo -n "Creating $user_wide_dir ... "
+		mkdir $user_wide_dir
+		echo "done"
+	fi
+	echo -n "Install cya into $user_wide_dir ... "
+	cp cya $user_wide_dir
+	echo "done"
+fi
+
+# Installing BASH auto completion
+######################################################################
+USER_QUESTION="Do you want to install the BASH auto completion file - into $bash_completion_dir?"
+ASK_USER
+cya_bash_autocomplete="$USER_ANSWER"
+
+if test "$cya_bash_autocomplete" == "yes"
+then
+	echo "Starting bash autocomplete profile installation..."
+	SUDO_CHECK
+
+	echo -n "Verifying $bash_completion_dir exists..."
+	if [ -d "$bash_completion_dir" ]
+	then
+		echo "yes"
+	else
+		echo "no"
+		echo -n "Creating $bash_completion_dir ..."
+		SUDO_RUN "mkdir $bash_completion_dir"
+		echo "done"
+	fi
+	echo -n "Install cya_completion into $bash_completion_dir ... "
+	SUDO_RUN "cp cya_completion $bash_completion_dir"
+	echo "done"
+
+	echo -n "Activating new bash profile... "
+	source ~/.bashrc
+	echo "done"
+
+	echo $'\n'"===> Please note you must have the bash-completion package installed"$'\n'"sudo (apt-get/yum/dnf/pacman) install bash-completion"$'\n'
+else
+	echo "Skipping bash autocomplete profile installation"
+fi
+
+# Installing BASH auto completion
+######################################################################
+echo "CYA should now be installed/upgraded.  Simply type in cya at the command line.  If that doesn't work then your system isn't checking either $system_wide_dir or $user_wide_dir"
+

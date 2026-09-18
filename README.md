@@ -14,17 +14,15 @@ CYA even supports mixing all three methods at the same time: rotating, manual, a
 
 **Version 2.0 and above is now able to backup user data via the mydata command!**
 
-More information: [https://www.cyberws.com/bash/cya/](https://www.cyberws.com/bash/cya/)
-
 Need help using CYA? [Youtube Instruction Videos](https://www.youtube.com/watch?v=fdH3Um4XNUs&list=PL7DdW0jxJRrEQfKXeuIzTWmPyomIp4k4Y)
 
 ----
 
 ## Updates
 
+Notice 2026: This is a valid and useful tool.
+
 * Follow this page
-* [Follow on Youtube](https://www.youtube.com/channel/UCeQtI9fcAapQkiHph42NjWA)
-* [Follow on Facebook](https://www.facebook.com/cyberwscom/)
 
 ## Contribute/Contact
 
@@ -32,8 +30,7 @@ If contacting for technical support please see video manuals first.  I'll do my 
 
 Contributors please see the "[Contributors Readme](contributors.md)" for important information.
 
-* Message through Github
-* [Contact Form on CyberWS](https://www.cyberws.com/contact-us/)
+* Please start an "Issue" to invoke discussion.
 
 ## Installing
 
